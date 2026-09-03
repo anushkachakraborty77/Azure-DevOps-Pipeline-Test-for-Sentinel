@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/10b012f3-b6e7-4f25-b6d6-f6eaf82fa3f5')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/10b012f3-b6e7-4f25-b6d6-f6eaf82fa3f5')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-110 PaloAlto - Possible flooding",
+        "description": "The alert rule was disabled due to too many consecutive failures. Reason: Server is failing to execute the query of this rule, please verify the query. Detects possible flooding.\n\nOriginal Severity - Medium",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "PaloaltoCDLEventv2\n| where EventResourceId =~ 'TRAFFIC'\n| where isnotempty(NetworkSessionId)\n| where DstBytes == 0 and tolong(NetworkPackets) > 0\n| extend AccountCustomEntity = DstUsername, IPCustomEntity = SrcIpAddr\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": "feb185cc-51f4-11ec-bf63-0242ac130002",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P1D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": "1.0.1"
+      }
+    }
+  ]
+}

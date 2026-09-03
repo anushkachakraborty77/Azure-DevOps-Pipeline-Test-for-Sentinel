@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d865e547-2a44-4911-8dd7-f66cec65ec92')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d865e547-2a44-4911-8dd7-f66cec65ec92')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-103 PaloAlto - Possible attack without response",
+        "description": "The alert rule was disabled due to too many consecutive failures. Reason: Server is failing to execute the query of this rule, please verify the query. Detects possible attack without response.\n\nOriginal severity - High",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "PaloaltoCDLEventv2\n| where EventResourceId =~ 'THREAT'\n| where DvcAction !has \"block\" or DvcAction !has \"override\" or DvcAction !has \"deny\"\n| extend AccountCustomEntity = DstUsername, IPCustomEntity = SrcIpAddr, UrlCustomEntity = Url\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": "b6d54840-51d3-11ec-bf63-0242ac130002",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P1D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "UrlCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": "1.0.1"
+      }
+    }
+  ]
+}

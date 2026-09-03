@@ -1,0 +1,92 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/dac3a587-b167-44a3-b1a4-b247deffd00b')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/dac3a587-b167-44a3-b1a4-b247deffd00b')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-116 - CTI-TAR-2026-035 LastPass Data Leak",
+        "description": "CTI-TAR-2026-035 LastPass Data Leak\n\nRITM1516080",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let domains = dynamic([\"baccarat.com.au\",\"robinskitchen.com.au\",\"house.com.au\"]);\r\nCommonSecurityLog\r\n| where RequestURL has_any (domains)\r\n| where not( RequestURL has_any (\"virustotal\",\"syndicatedsearch\",\"ksoccfpr003\"))\r\n| where DeviceAction has_any(\"alert\",\"allow\")\r\n| project TimeGenerated, SourceIP, DestinationIP, DestinationHostName, RequestURL, DeviceAction, DeviceVendor, SourceUserName\r\n| sort by TimeGenerated desc",
+        "queryFrequency": "PT2H",
+        "queryPeriod": "PT2H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl",
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1071",
+          "T1660"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": {
+          "alertDynamicProperties": []
+        },
+        "customDetails": {},
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "SourceUserName"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "RequestURL"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

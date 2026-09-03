@@ -1,0 +1,70 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/a2107f7e-1430-4fee-95af-209f3665b403')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/a2107f7e-1430-4fee-95af-209f3665b403')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-095 Sailpoint Suspicious Login outside usual hours",
+        "description": "Detects login outside usual login hours",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let timeRange = 1h;\r\nSailPointLogs_CL\r\n//| where TimeGenerated > ago(timeRange)\r\n| extend hour = datetime_part(\"hour\", TimeGenerated)\r\n| where hour between (22.00 .. 07.00)\r\n| where type_s == \"AUTH\" and status_s == \"PASSED\"\r\n| where attributes_info_s == \"LOGIN_SUCCESS\"\r\n| where target_name_s != \"Unknown\"\r\n| project TimeGenerated\r\n    , actor_name_s\r\n    , IPAddress\r\n    , Status =status_s\r\n    , attributes_hostName_s\r\n    , attributes_info_s\r\n| where attributes_info_s <> \"LOGOUT\"\r\n| project TimeGenerated, UserName = actor_name_s, UserIP = IPAddress, LogInStaus = attributes_info_s",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1078"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "UserName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

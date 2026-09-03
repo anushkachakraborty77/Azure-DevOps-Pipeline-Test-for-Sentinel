@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/de343870-4181-49ef-912a-7d8fba4de48f')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/de343870-4181-49ef-912a-7d8fba4de48f')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-085 Solorigate Named Pipe",
+        "description": "Identifies a match across various data feeds for named pipe IOCs related to the Solorigate incident.\n For the sysmon events required for this detection, logging for Named Pipe Events needs to be configured in Sysmon config (Event ID 17 and Event ID 18)\n Reference: https://techcommunity.microsoft.com/t5/azure-sentinel/solarwinds-post-compromise-hunting-with-azure-sentinel/ba-p/1995095",
+        "severity": "High",
+        "enabled": true,
+        "query": "(union isfuzzy=true\n(xw_securityevent\n| where Source == \"Microsoft-Windows-Sysmon\"\n| where EventID in (17,18)\n| extend EvData = parse_xml(EventData), BusinessUnit = BUID\n| extend EventDetail = EvData.DataItem.EventData.Data\n| extend NamedPipe = EventDetail.[5].[\"#text\"]\n| extend ProcessDetail = EventDetail.[6].[\"#text\"]\n| where NamedPipe contains '583da945-62af-10e8-4902-a8f205c72b2e'\n| extend Account = UserName, BusinessUnit\n| project-away EventDetail, EvData\n),\n(\n xw_securityevent\n| extend BusinessUnit = BUID\n| where EventID == '5145'\n| where AccessList has '%%4418'     // presence of CreatePipeInstance value \n| where RelativeTargetName contains '583da945-62af-10e8-4902-a8f205c72b2e'\n)\n)\n| extend timestamp = TimeGenerated, AccountCustomEntity = Account, HostCustomEntity = Computer, BusinessUnit",
+        "queryFrequency": "PT2H",
+        "queryPeriod": "PT2H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [
+          "T1055"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": "11b4c19d-2a79-4da3-af38-b067e1273dee",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": "1.2.0"
+      }
+    }
+  ]
+}

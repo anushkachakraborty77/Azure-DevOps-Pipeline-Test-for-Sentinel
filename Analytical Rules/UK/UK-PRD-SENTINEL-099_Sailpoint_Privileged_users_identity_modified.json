@@ -1,0 +1,78 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/76c3bee5-336a-49f4-8401-6113adf0b0b7')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/76c3bee5-336a-49f4-8401-6113adf0b0b7')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-099 Sailpoint Privileged users identity modified",
+        "description": "Detect when a privileged (Admin) users identity has been manually added, deleted or modified to a potential malicous or compromised insider threat investigate ",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let timeRange = 1h;\r\nSailPointLogs_CL\r\n//| where TimeGenerated >= ago(timeRange)\r\n| where name_s  in ( \"Grant User Role Admin Passed\", \"Grant User Role Role Admin Passed\", \"Revoke User Role Admin Passed\", \"Revoke User Role Role Admin Passed\", \"Grant User Role Helpdesk Passed\")\r\n| project TimeGenerated, Operation = operation_s, Action = action_s, Status = status_s, TargetUser = target_name_s, Actor = actor_name_s, ActorIP = attributes_hostName_s",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Persistence",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "TargetUser"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "Actor"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

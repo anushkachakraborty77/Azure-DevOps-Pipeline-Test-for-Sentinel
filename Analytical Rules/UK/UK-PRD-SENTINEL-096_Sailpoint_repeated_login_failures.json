@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/69890e87-598f-422c-a207-382dad021c2a')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/69890e87-598f-422c-a207-382dad021c2a')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-096 Sailpoint repeated login failures",
+        "description": "Detects repeated failed logins",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let timeFrame = 1h;\r\nlet threshold = 5;\r\nSailPointLogs_CL\r\n//| where TimeGenerated >= ago(timeFrame)\r\n| where type_s == \"AUTH\" and status_s == \"FAILED\"\r\n| summarize\r\n    StartTimeUtc = min(TimeGenerated),\r\n    EndTimeUtc = max(TimeGenerated),\r\n    FailedLogonsCount = count()\r\n    by status_s, target_name_s, IPAddress, type_s\r\n| where FailedLogonsCount >= threshold\r\n| project\r\n    Status = status_s,\r\n    TargetUser = target_name_s,\r\n    RequestType = type_s,\r\n    StartTimeUtc,\r\n    EndTimeUtc,\r\n    IPAddress,\r\n    FailedLogonsCount",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "TargetUser"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPAddress"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

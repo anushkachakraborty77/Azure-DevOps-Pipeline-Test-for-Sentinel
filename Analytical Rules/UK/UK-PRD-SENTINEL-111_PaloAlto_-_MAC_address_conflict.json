@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/98e2732b-d46d-4dbd-8efe-aa4ef52ce995')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/98e2732b-d46d-4dbd-8efe-aa4ef52ce995')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-111 PaloAlto - MAC address conflict",
+        "description": "The alert rule was disabled due to too many consecutive failures. Reason: Server is failing to execute the query of this rule, please verify the query. Detects several users with the same MAC address.",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let threshold = 2;\nPaloaltoCDLEventv2\n| where EventResourceId =~ 'TRAFFIC'\n| where isnotempty(DestinationMACAddress) and isnotempty(DstUsername)\n| summarize UserSet = make_set(DstUsername) by DestinationMACAddress\n| extend Users = array_length(UserSet)\n| where Users >= threshold\n\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": "976d2eee-51cb-11ec-bf63-0242ac130002",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "Users"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": "1.0.0"
+      }
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b6d96b45-e780-459f-96ea-245d64755207')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b6d96b45-e780-459f-96ea-245d64755207')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-115 Kerberoasting with WinEvent ID",
+        "description": "Kerberoasting with WinEvent ID",
+        "severity": "Informational",
+        "enabled": true,
+        "query": "SecurityEvent \r\n| where EventID == 4769 \r\n// Extract needed fields from XML when not parsed as columns \r\n| extend TicketEncryptionType = extract(@\"<Data Name=\"\"TicketEncryptionType\"\">([^<]+)</Data>\", 1, EventData) \r\n| extend TicketOptions        = extract(@\"<Data Name=\"\"TicketOptions\"\">([^<]+)</Data>\", 1, EventData) \r\n| extend ServiceName          = coalesce(ServiceName, extract(@\"<Data Name=\"\"ServiceName\"\">([^<]+)</Data>\", 1, EventData)) \r\n| extend TargetUserName       = coalesce(TargetUserName, extract(@\"<Data Name=\"\"TargetUserName\"\">([^<]+)</Data>\", 1, EventData)) \r\n| extend IpAddress            = coalesce(IpAddress, extract(@\"<Data Name=\"\"IpAddress\"\">([^<]+)</Data>\", 1, EventData)) \r\n// Normalize common values \r\n| extend TicketEncryptionType = tostring(TicketEncryptionType) \r\n| extend TicketOptions        = tostring(TicketOptions) \r\n| extend IpAddress            = iff(IpAddress startswith \"::ffff:\", substring(IpAddress, 7), IpAddress) \r\n// Filtering logic \r\n| where isnotempty(TicketEncryptionType) and isnotempty(TicketOptions) \r\n| where TicketEncryptionType in (\"0x17\")    // RC4 \r\n| where TicketOptions == \"0x40810010\"              // suspicious combo seen in tooling \r\n| where ServiceName !contains \"$\"                  // avoid machine accounts \r\n| summarize TotalRequests = count(), \r\n            DistinctIPs = dcount(IpAddress), \r\n            IPs = make_set(IpAddress, 10) \r\n          by TargetUserName, ServiceName, TicketEncryptionType, TicketOptions, bin(TimeGenerated, 1h) \r\n| where TotalRequests > 5",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": {
+          "alertDynamicProperties": []
+        },
+        "customDetails": {},
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "TargetUserName"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPs"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/edc0946c-0a50-42ce-87e3-7432baee8858')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/edc0946c-0a50-42ce-87e3-7432baee8858')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-102 PaloAlto - Possible port scan",
+        "description": "The alert rule was disabled due to too many consecutive failures. Reason: Server is failing to execute the query of this rule, please verify the query. Detects possible port scan.\n",
+        "severity": "High",
+        "enabled": false,
+        "query": "let threshold = 10;\nPaloaltoCDLEventv2\n| where EventResourceId =~ 'TRAFFIC'\n| where isnotempty(DstPortNumber) and isnotempty(SrcIpAddr)\n| summarize PortSet = make_set(DstPortNumber) by SrcIpAddr, bin(TimeGenerated, 5m)\n| where array_length(PortSet) > threshold\n| extend IPCustomEntity = SrcIpAddr\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Reconnaissance"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": "3575a9c0-51c9-11ec-bf63-0242ac130002",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P1D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": "1.0.1"
+      }
+    }
+  ]
+}

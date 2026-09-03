@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/241470c3-cc51-41fd-a44a-55cf098967dd')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/241470c3-cc51-41fd-a44a-55cf098967dd')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-114 Azure Backup Deletion Detected – Exchange & Shared Infra RGs",
+        "description": "UK-PRD-SENTINEL-114 Azure Backup Deletion Detected – Exchange & Shared Infra RGs\n\nRITM1434063",
+        "severity": "High",
+        "enabled": true,
+        "query": "AzureActivity\r\n| where TimeGenerated >= ago(1d)\r\n| where ResourceProviderValue =~ \"Microsoft.RecoveryServices\"\r\n// Extract vault name from /vaults/<name>/\r\n| extend Vault = extract(@\"/vaults/([^/]+)/\", 1, _ResourceId)\r\n| where Vault has_any (\r\n    \"uk-ukw-ewt-prd-rsv-imu-exchange-mab\",\r\n    \"uk-uks-ewt-apps-prd-rsv-imu-common\",\r\n    \"uk-uks-kbs-prd-rsv-imu-common\"\r\n)\r\n| where OperationNameValue has_any (\r\n    \"Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems/delete\"\r\n)\r\n| project TimeGenerated, Vault, OperationNameValue, OperationName,\r\n          Caller, CallerIpAddress, ResourceGroup, _ResourceId,\r\n          ActivityStatusValue, ActivitySubstatusValue\r\n| order by TimeGenerated desc\r\n",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Impact"
+        ],
+        "techniques": [
+          "T1485"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "Caller"
+              }
+            ]
+          },
+          {
+            "entityType": "AzureResource",
+            "fieldMappings": [
+              {
+                "identifier": "ResourceId",
+                "columnName": "_ResourceId"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "Vault"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

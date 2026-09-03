@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/262c6f47-7a45-4372-a847-e5328d190df4')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/262c6f47-7a45-4372-a847-e5328d190df4')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-097 Sailpoint Login attempts breakglass account",
+        "description": "Detect when repeated failed logins (3 attempts) on the breakglass account to ensure that accounts are not undergoing brut force attacks",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let timeFrame = 1h;\r\nlet threshold = 5;\r\nSailPointLogs_CL\r\n//| where TimeGenerated >= ago(timeFrame)\r\n| where target_name_s in (\"SailPoint services\",\"SailPoint support\")\r\n| where type_s == \"AUTH\" and status_s == \"FAILED\"\r\n| summarize\r\n    StartTimeUtc = max(TimeGenerated),\r\n    EndTimeUtc = min(TimeGenerated),\r\n    FailedLogonsCount = count()\r\n    by status_s, target_name_s, IPAddress, type_s\r\n| where FailedLogonsCount >= threshold\r\n| project\r\n    Status = status_s,\r\n    TargetUser = target_name_s,\r\n    RequestType = type_s,\r\n    StartTimeUtc,\r\n    EndTimeUtc,\r\n    FailedLogonsCount",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "TargetUser"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/796117d4-03bb-4307-98c2-caba1e5f6857')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/796117d4-03bb-4307-98c2-caba1e5f6857')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-024 Rare client observed with high reverse DNS lookup count",
+        "description": "Identifies clients with a high reverse DNS counts which could be carrying out reconnaissance or discovery activity.\nAlert is generated if the IP performing such reverse DNS lookups was not seen doing so in the preceding 7-day period.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let starttime = 8d;\nlet endtime = 1d;\nlet threshold = 10;\nxw_dnsevents\n|extend BusinessUnit = BUID\n| where TimeGenerated > ago(endtime)\n| where Name contains \"in-addr.arpa\" \n| summarize StartTimeUtc = min(TimeGenerated), EndTimeUtc = max(TimeGenerated), dcount(Name) by ClientIP, BusinessUnit\n| where dcount_Name > threshold\n| project StartTimeUtc, EndTimeUtc, ClientIP , dcount_Name, BusinessUnit\n| join kind=leftanti (xw_dnsevents\n    |extend BusinessUnit = BUID\n    | where TimeGenerated between(ago(starttime)..ago(endtime))\n    | where Name contains \"in-addr.arpa\" \n    | summarize dcount(Name) by ClientIP, bin(TimeGenerated, 1d), BusinessUnit\n    | where dcount_Name > threshold\n    | project ClientIP , dcount_Name, BusinessUnit\n) on ClientIP\n| extend timestamp = StartTimeUtc, IPCustomEntity = ClientIP",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P8D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Discovery"
+        ],
+        "techniques": [
+          "T1046"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": "15ae38a2-2e29-48f7-883f-863fb25a5a06",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "DNS",
+            "fieldMappings": [
+              {
+                "identifier": "DomainName",
+                "columnName": "BusinessUnit"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": "1.0.0"
+      }
+    }
+  ]
+}

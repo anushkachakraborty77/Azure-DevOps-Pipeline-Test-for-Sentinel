@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b95bc101-ffe7-4718-9ef0-b052b56ae6b6')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b95bc101-ffe7-4718-9ef0-b052b56ae6b6')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-104 PaloAlto - Put and post method request in high risk file type",
+        "description": "The alert rule was disabled due to too many consecutive failures. Reason: The query was blocked as it was consuming too many resources. Detects put and post method request in high risk file type.",
+        "severity": "High",
+        "enabled": true,
+        "query": "let HighRiskFileType = dynamic(['.exe', '.msi', '.msp', '.jar', '.bat', '.cmd', '.js', '.jse', 'ws', '.ps1', '.ps2', '.msh']);\nPaloaltoCDLEventv2\n| where EventResourceId =~ 'THREAT'\n| where EventResult =~ 'file'\n| where HttpRequestMethod has_any (\"POST\", \"PUT\")\n| where FileType in (HighRiskFileType)\n| extend FileCustomEntity = SrcFileName\n",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": "f12e9d10-51ca-11ec-bf63-0242ac130002",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P1D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "File",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "FileCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": "1.0.1"
+      }
+    }
+  ]
+}

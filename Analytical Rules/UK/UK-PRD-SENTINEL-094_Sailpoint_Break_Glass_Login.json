@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/f5873006-da20-4211-9147-83ec6e180bd7')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/f5873006-da20-4211-9147-83ec6e180bd7')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-094 Sailpoint Break Glass Login",
+        "description": "Detects successfull break glass login",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "SailPointLogs_CL\r\n| where type_s == \"AUTH\" and status_s == \"PASSED\"\r\n| where target_name_s in (\"SailPoint services\",\"SailPoint support\")\r\n| project TimeGenerated\r\n, LAWID = TenantId\r\n, ActionType = type_s\r\n, OperationName = technicalName_s\r\n, Status =status_s\r\n, attributes_info_s\r\n,TargetUserName= target_name_s\r\n, ActorName = actor_name_s\r\n, ActorIP = IPAddress\r\n, objects_s\r\n, Env = attributes_org_s\r\n, LogSource = attributes_sourceName_s",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "ActorName"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "ActorIP"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

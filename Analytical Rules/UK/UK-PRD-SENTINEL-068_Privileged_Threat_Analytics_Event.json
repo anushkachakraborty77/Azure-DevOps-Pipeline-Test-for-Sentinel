@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/f4b212e8-edf8-404e-994f-9970952b07cc')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/f4b212e8-edf8-404e-994f-9970952b07cc')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "UK-PRD-SENTINEL-068 Privileged Threat Analytics Event",
+        "description": "PTA also looks for attackers who compromise privileged accounts by running sophisticated attacks, such as Golden Ticket.",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let queryFrequency = ago(1d);\r\nxw_CommonSecuritylog\r\n| where TimeGenerated >= queryFrequency\r\n| where DeviceVendor =~ \"Cyber-Ark\"\r\n| where DeviceAction =~ \"Privileged Threat Analytics Event\"\r\n| parse Message with\r\n    * \"=[\" Date \"]\"\r\n    * \"[\" EventName \"]\"\r\n    * \"[\" EventId \"]\"\r\n    * \"[\" TargetAccount \"]\"\r\n    * \"[\" PSMServer \"]\"\r\n    * \"[\" SourceAddress \"]\"\r\n    * \"[\" Score \"]\"\r\n    * \"[\" AuditId \"]\"\r\n    * \"[\" ExtraData \"]\" *\r\n| where TargetAccount != \"None\"\r\n| project\r\n    TimeGenerated,\r\n    Alert = EventName,\r\n    Activity,\r\n    TargetAccount,\r\n    PSMServer,\r\n    LogSeverity,\r\n    DestinationUserPrivileges,\r\n    DeviceVendor,\r\n    BUID",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P1D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "TargetAccount"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "PSMServer"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}
