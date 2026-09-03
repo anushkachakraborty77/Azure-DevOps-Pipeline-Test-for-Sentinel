@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e60b18a2-ffe3-466c-9ce3-9290b7052a38')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e60b18a2-ffe3-466c-9ce3-9290b7052a38')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-047 Microsoft Remote Desktop Service Remote Code Execution (Bluekeep)",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "\r\nlet TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName contains \"GO-PRD-SENTINEL-047 Microsoft Remote Desktop Service Remote Code Execution (Bluekeep)\"\r\n| where TimeGenerated >= ago(24h)\r\n| extend A = parse_json(Entities)\r\n| mvexpand A\r\n| extend IP = tostring(A.Address)\r\n| where isnotempty(IP)\r\n| summarize make_list(IP);\r\n\r\nlet cefpa = CommonSecurityLog1\r\n| where TimeGenerated > ago(10m)\r\n| where DeviceVendor == \"Palo Alto Networks\"\r\n| where Activity == \"THREAT\"\r\n| where DeviceEventClassID == \"vulnerability\"  \r\n| extend ThreatMessage = extract(\"cat=(.*?)\\\\(\", 1, AdditionalExtensions) \r\n| extend threatid = extract(\"cat=(.*?)\\\\((.*?)\\\\)\", 2, AdditionalExtensions)\r\n| where threatid == \"55815\" or threatid ==  \"56310\" or threatid == \"56313\"\r\n| where DeviceAction != \"reset-both\" and DeviceAction != \"reset-server\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\n\r\nlet pasyslog = paloaltologs \r\n| where TimeGenerated > ago(10m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where SourceIP !in (vuln_scanner_IPs)\r\n| where Activity == \"THREAT\"\r\n| where ThreatType == \"vulnerability\"\r\n| where ThreatID == \"55815\" or ThreatID ==  \"56310\" or ThreatID == \"56313\"\r\n| where DeviceAction != \"reset-both\" and DeviceAction != \"reset-server\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\n\r\ncefpa | union pasyslog",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1190"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "IP",
+              "URL"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

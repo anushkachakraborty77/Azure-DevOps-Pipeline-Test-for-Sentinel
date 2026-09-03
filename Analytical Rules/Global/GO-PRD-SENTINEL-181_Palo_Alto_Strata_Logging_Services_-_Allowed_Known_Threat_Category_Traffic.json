@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4e17e7c2-a2e6-4cc0-9835-91b54be99ef4')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4e17e7c2-a2e6-4cc0-9835-91b54be99ef4')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "[IGNORE] GO-PRD-SENTINEL-181 Palo Alto Strata Logging Services - Allowed Known Threat Category Traffic",
+        "description": "This use case identifies users and hosts connecting towards outbound traffic that is allowed or alerted by the PaloAlto to URLs associated with malicious or risky categories such as malware, phishing, command-and-control, and anonymizers.",
+        "severity": "High",
+        "enabled": true,
+        "query": "GO_PaloAltoStrataLoggingService \r\n| where Action in (\"alert\",\"allow\")\r\n| where isnotempty(SourceUsername) and isnotempty(RequestURL)\r\n| where URLCategory has_any (\"grayware\",\"malware\",\"compromised-website\",\"phishing\",\"command-and-control\",\"scanning activity\",\"hacking\",\"proxy-avoidance-and-anonymizers\")\r\n| project TimeGenerated,DestinationHostName,SourceIP, DestinationIP,SourceUsername,RequestURL,RequestMethod,Action,Activity,URLCategory,LogSeverity,DestinationPort,SourcePort,SourceZone,DestinationZone,MF\r\n",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "PT15M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T1071",
+          "T1105"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "DestinationIP"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "RequestURL"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "SourceUsername"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

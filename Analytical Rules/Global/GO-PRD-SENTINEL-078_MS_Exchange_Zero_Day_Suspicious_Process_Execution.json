@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8ed997fb-2b13-4c83-aa9e-100a5b01556b')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/8ed997fb-2b13-4c83-aa9e-100a5b01556b')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-078 MS Exchange Zero Day Suspicious Process Execution",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let eventset1=SecurityEvent | where EventID == 4688 | where Process has_any (\"cmd.exe\", \"powershell.exe\", \"PowerShell_ISE.exe\") | where CommandLine contains  \"https://raw.githubusercontent.com/besimorhino/powercat/master/powercat.ps1\";\n\nlet eventset2=\nSecurityEvent | where EventID == 4688 | where Process has_any (\"cmd.exe\", \"powershell.exe\", \"PowerShell_ISE.exe\") | where isnotempty(CommandLine) | where CommandLine contains \"Add-PSSnapin Microsoft.Exchange.Powershell.Snapin\" | summarize FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated) by Computer, Account, CommandLine;\n\nlet eventset3=\nSecurityEvent | where EventID == 4688 | where Process has_any (\"powershell.exe\", \"PowerShell_ISE.exe\") | where CommandLine has \"$client = New-Object System.Net.Sockets.TCPClient\";\n\nunion isfuzzy=true eventset1,eventset2,eventset3\n| extend IPCustomEntity = IpAddress",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "PT15M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "IP",
+              "Host",
+              "URL",
+              "FileHash"
+            ],
+            "groupByAlertDetails": null,
+            "groupByCustomDetails": null
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

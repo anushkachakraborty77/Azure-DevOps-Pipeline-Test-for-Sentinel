@@ -1,0 +1,93 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/89934b1d-4be1-4bff-8551-449dd6a94a19')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/89934b1d-4be1-4bff-8551-449dd6a94a19')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-013 Suspicious RDP Login Attempts",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredTimeFrame = 24h;\r\nlet TriggeredUsers =\r\nSecurityAlert\r\n| where DisplayName contains \"GO-PRD-SENTINEL-013 Suspicious RDP Login Attempts\"\r\n| where TimeGenerated > ago(TriggeredTimeFrame)\r\n| extend A = parse_json(Entities)\r\n| mvexpand A\r\n| extend User = tostring(A.Name)\r\n| where isnotempty(User)\r\n| distinct User;\r\nlet timeframe = 20m;\r\nSecurityEvent1\r\n| where TimeGenerated > ago(timeframe)\r\n| where EventID == 4625\r\n| where LogonType == 10\r\n| where TargetUserName !endswith \"$\"\r\n| where isnotempty(TargetUserName)\r\n| where isnotempty(WorkstationName)\r\n| where WorkstationName <> \"-\"\r\n| extend usr_src = TargetUserName, hostname = WorkstationName, domain = SubjectDomainName\r\n| where usr_src == hostname or domain == hostname\r\n| where usr_src !in (TriggeredUsers)\r\n| extend AccountCustomEntity = TargetUserName, IPCustomEntity = IpAddress, HostCustomEntity = hostname\r\n| extend URLCustomEntity = MF",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

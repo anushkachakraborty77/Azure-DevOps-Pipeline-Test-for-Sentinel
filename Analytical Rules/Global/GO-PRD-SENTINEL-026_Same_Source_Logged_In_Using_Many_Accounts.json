@@ -1,0 +1,99 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4686476f-4e1e-4a74-a04e-9305799f581c')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4686476f-4e1e-4a74-a04e-9305799f581c')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-026 Same Source Logged In Using Many Accounts",
+        "description": "This use-case detects suspicious lateral movement activities, where a single source IP address attempts to login to other host(s) using multiple user accounts in a certain time and threshold. If successful logons, the logic cross-check the logon activity with the corresponding post-logon suspicious processes execution, and considers both activities as conditions to generate incident. If failed logon, the logic can only count logon attempts.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-026 Same Source Logged In Using Many Accounts\" \r\n| where TimeGenerated >= ago(24h)\r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend IP = tostring(A.Address)\r\n| where isnotempty(IP)\r\n| distinct IP;\r\n//\r\nlet interval = 10m;\r\nlet successLogins = SecurityEvent1\r\n| where TimeGenerated > ago (10m)\r\n| where EventID == \"4624\" and AccountType == \"User\"\r\n| where IpAddress !in (TriggeredIPs)\r\n| where IpAddress !in (vuln_scanner_IPs)\r\n| where IpAddress !in (\"10.224.217.216\", \"10.224.146.94\",\"10.216.182.231\",\"10.216.182.232\",\"10.216.182.233\",\"10.216.182.234\",\"10.216.182.244\",\"10.216.182.245\",\"10.216.182.246\",\"10.216.182.247\")\r\n| where IpAddress != \"-\"\r\n| project-away Process,ProcessName,ParentProcessName,CommandLine,NewProcessName\r\n| project-rename LogonTime=TimeGenerated\r\n| join kind=inner (\r\nSecurityEvent1 | where TimeGenerated > ago (10m)\r\n| where EventID == \"4688\"\r\n| where Process contains \"psexec\" or Process contains \"WMI\" or Process contains \"powershell\" or Process contains \"cscript\" or Process contains \"at.exe\" or Process contains  \"sc.exe\" or Process contains  \"tcpdump32c.exe\" or Process contains  \"Mshta.exe\" or  Process contains  \"Rundll32\" or Process contains  \"Lsass.exe\" or Process contains  \"Regsvr32.exe\" or Process contains  \"rdpclip.exe\" or Process contains \"Msbuild.exe\"\r\n| where not ((parse_ipv4(IpAddress) > parse_ipv4(\"10.152.26.5\") and parse_ipv4(IpAddress) < parse_ipv4(\"10.152.26.9\")) and MF == \"Singapore\")\r\n| where not ((ipv4_is_match('10.184.140.0/24', IpAddress) == True) and TargetUserName == \"lu-admgduser\")\r\n| project-rename ProcessLogTime=TimeGenerated) on TargetLogonId,Computer,TargetUserName\r\n| summarize StartTime = min(LogonTime), EndTime = max(LogonTime), AccountsUsed = strcat_array(make_set(TargetUserName), \",\"), Computer = strcat_array(makeset(Computer),','), Amount = dcount(TargetUserName),LogonType=makeset(LogonType), NewProcessNames=makeset(NewProcessName), ParentProcessNames=makeset(ParentProcessName),CommandLines=makeset(CommandLine) by IpAddress,MF\r\n| where Amount >= 5 and EndTime - StartTime <= interval\r\n| extend  Timestamp = StartTime, LogonResult=\"Success\";\r\nlet failLogins = SecurityEvent1\r\n| where TimeGenerated >= ago(10m)\r\n| where EventID == 4625 and AccountType == \"User\"\r\n| where  AuthenticationPackageName == \"NTLM\"\r\n| where isnotempty(TargetUserName) and isnotempty(IpAddress)\r\n| where IpAddress !in (TriggeredIPs)\r\n| where IpAddress !in (vuln_scanner_IPs)\r\n| where IpAddress !in (\"10.224.217.216\", \"10.224.146.94\")\r\n| where TargetUserName !contains \"ANONYMOUS\"\r\n| where TargetUserName !endswith \"$\"\r\n| where TargetUserName !contains \"-svc\"\r\n| where not ((ipv4_is_match('10.184.140.0/24', IpAddress) == True) and TargetUserName == \"lu-admgduser\")\r\n| where not ((parse_ipv4(IpAddress) > parse_ipv4(\"10.152.26.5\") and parse_ipv4(IpAddress) < parse_ipv4(\"10.152.26.9\")) and MF == \"Singapore\")\r\n| where IpAddress != \"-\"\r\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), AccountsUsed = strcat_array(make_set(TargetUserName), \",\"), Computer = strcat_array(makeset(Computer),','), Amount = dcount(TargetUserName),LogonType=makeset(LogonType) by IpAddress,MF\r\n| where Amount >= 15 and EndTime - StartTime <= interval\r\n| extend Timestamp = StartTime,LogonResult=\"Fail\";\r\nsuccessLogins | union failLogins \r\n| extend HostCustomEntity = Computer, AccountCustomEntity = AccountsUsed,IPCustomEntity = IpAddress\r\n| extend URLCustomEntity = MF",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1212"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Account"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

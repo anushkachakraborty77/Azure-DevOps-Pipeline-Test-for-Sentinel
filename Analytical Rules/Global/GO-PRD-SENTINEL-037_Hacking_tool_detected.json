@@ -1,0 +1,90 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/acfd6879-850c-488c-bd66-ce9223fecc11')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/acfd6879-850c-488c-bd66-ce9223fecc11')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-037 Hacking tool detected",
+        "description": "The rule detects hacking tools on devices, as alerted by Symantec.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName contains \"GO-PRD-SENTINEL-037 Hacking tool detected\"\r\n| where TimeGenerated >= ago(24h)\r\n| extend A = parse_json(Entities)\r\n| mvexpand A\r\n| extend IP = A.Address\r\n| where isnotempty(IP)\r\n| summarize make_list(IP);\r\nsymantec \r\n| where TimeGenerated > ago (10m)\r\n| where RiskName has \"Hacktool\" \r\n| where FileSize != \"0 Bytes\"\r\n| where SourceIP !in (TriggeredIPs)\r\n| extend HostCustomEntity = Computer, IPCustomEntity = SourceIP, AccountCustomEntity = SourceUserName\r\n",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution"
+        ],
+        "techniques": [
+          "T1204"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Host"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e677cc98-9da9-491d-bab2-aaa84c51f0e3')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e677cc98-9da9-491d-bab2-aaa84c51f0e3')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-076 MS Exchange Zero Day PaloAlto Threat Signatures",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-076 MS Exchange Zero Day PaloAlto Threat Signatures\"\r\n| where TimeGenerated >= ago(24h)\r\n| extend A = parse_json(Entities)\r\n| mvexpand A\r\n| extend IP = tostring(A.Address)\r\n| where isnotempty(IP)\r\n| summarize make_list(IP);\r\nlet cefpa = CommonSecurityLog1\r\n| where DeviceVendor == \"Palo Alto Networks\"\r\n| where Activity == \"THREAT\"\r\n| extend ThreatMessage = extract(\"cat=(.*?)\\\\(\", 1, AdditionalExtensions) \r\n| extend threatid = extract(\"cat=(.*?)\\\\((.*?)\\\\)\", 2, AdditionalExtensions)\r\n| where threatid in ( \"90796\",\"90797\",\"90798\",\"90800\")\r\n| where DeviceAction != \"reset-both\" and DeviceAction != \"reset-server\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\nlet pasyslog = paloaltologs \r\n| where SourceIP !in (TriggeredIPs)\r\n| where Activity == \"THREAT\"\r\n| where ThreatID in ( \"90796\",\"90797\",\"90798\",\"90800\")\r\n| where DeviceAction != \"reset-both\" and DeviceAction != \"reset-server\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\ncefpa | union pasyslog",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution"
+        ],
+        "techniques": [
+          "T1203"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "IP",
+              "URL"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

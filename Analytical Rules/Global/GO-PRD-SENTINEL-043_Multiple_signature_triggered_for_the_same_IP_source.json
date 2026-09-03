@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/c0bfe976-1bd8-4e5f-9c9e-523f5392be0d')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/c0bfe976-1bd8-4e5f-9c9e-523f5392be0d')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-043 Multiple signature triggered for the same IP source",
+        "description": "Detects when an attacker attempts to exploit multiple distinct vulnerabilites within short period of time. ",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\nSecurityAlert\n| where DisplayName contains\"GO-PRD-SENTINEL-043 Multiple signature triggered for the same IP source\"\n| where TimeGenerated >= ago(24h)\n| extend A = parse_json(Entities)\n| mvexpand A\n| extend IP = tostring(A.Address)\n| where isnotempty(IP)\n| summarize make_list(IP);\n\nlet pasyslog = paloaltologs\n| where TimeGenerated > ago (10m)\n| where Activity == \"THREAT\" and ThreatType ==\"vulnerability\"\n| where DeviceAction in (\"allow\",\"alert\")\n| where Severity  == \"medium\" or Severity  == \"high\" or Severity  == \"low\"\n| extend Signature = ThreatName;\n\n\nlet pacef = CommonSecurityLog1\n| where TimeGenerated > ago (10m)\n| where DeviceVendor == \"Palo Alto Networks\"\n| where Activity == \"THREAT\"  and  DeviceEventClassID == \"vulnerability\"\n| where DeviceAction in (\"allow\",\"alert\")\n| where toint(LogSeverity) > 2\n| extend Signature = extract(\"cat=([^;]+)\", 1 , AdditionalExtensions);\n\n\nlet FWLogs= pasyslog | union pacef;\n\nlet lookup=toscalar(datatable(ip_range:string) [\"64.39.96.0/20\",\"13.115.104.0/24\"] | summarize l=make_set(ip_range));\nlet AllSourceIps = materialize(\nFWLogs\n| distinct SourceIP\n);\nlet MatchedIps = AllSourceIps\n| mv-apply l=lookup to typeof(string) on\n(\n   where ipv4_is_match (SourceIP, l)\n);\nFWLogs\n| where SourceIP !in (MatchedIps)\n| where SourceIP !in (TriggeredIPs)\n| where SourceIP !in (vuln_scanner_IPs)\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), make_set(Signature), make_set(DestinationPort), make_set(SourcePort), SigCount=dcount(Signature), makeset(Computer),make_set(DestinationIP) by SourceIP,MF\n| where EndTime - StartTime < 5m\n| where SigCount > 5\n| extend IPCustomEntity = SourceIP\n| extend URLCustomEntity = MF",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1190"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "IP",
+              "URL"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

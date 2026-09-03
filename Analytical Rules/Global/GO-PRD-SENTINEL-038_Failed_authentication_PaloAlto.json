@@ -1,0 +1,90 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/84cf929c-dfdb-4797-8290-b3373b8f7d4e')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/84cf929c-dfdb-4797-8290-b3373b8f7d4e')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-038 Failed authentication PaloAlto",
+        "description": "This Use Case is designed to detect failed SSH authentication attempts on the Palo Alto firewall.\n",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredTimeFrame = 24h;\r\nlet TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-038 Failed authentication PaloAlto\" \r\n| where TimeGenerated >= ago(TriggeredTimeFrame) \r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend IP = tostring(A.Address)\r\n| where isnotempty(IP)\r\n| distinct IP; \r\nlet timeframe = 20m;\r\nlet cefpa = CommonSecurityLog1 \r\n| where TimeGenerated >= ago(timeframe)\r\n| where DeviceVendor == \"Palo Alto Networks\" \r\n| where Activity == \"SYSTEM\" \r\n| where isnotempty(Message)\r\n| where Message contains \"Failed password\" \r\n//| extend User = extract(\"Failed password for (.+)from\",1,Message) \r\n| extend User = trim(\" \",extract(\"Failed password for (.+)from\", 1, Message) )\r\n| extend SourceIP = extract(\"(([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.(([0-9]{1,3})))\",1,Message)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where SourceIP !in (vuln_scanner_IPs)\r\n| where not (SourceIP == \"10.222.68.29\" and User in (\"us-svc-ns-swncm\",\"us-svc-ciscoprime\",\"us-svc-netbrain\",\"ACS-R218692\",\"svcsnow\",\"snowuser\",\"cmdb_discovery\",\"collectorlogin\",\"ovoc\"))  \r\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), count(), UserName = strcat_array(todynamic(makeset(User)),\",\"),  DeviceName = strcat_array(todynamic(make_set(DeviceName)),\",\") by SourceIP,MF\r\n| where EndTime - StartTime <= 5m\r\n| where count_ >= 3\r\n| extend IPCustomEntity = SourceIP \r\n| extend AccountCustomEntity = UserName\r\n| extend HostCustomEntity = DeviceName;\r\nlet syslogpa = paloaltologs\r\n| where TimeGenerated >= ago(timeframe)\r\n| where Activity == \"SYSTEM\" \r\n| where SyslogMessage contains \"Failed password\" \r\n//| extend User = extract(\"Failed password for (.+)from\",1,SyslogMessage) \r\n| extend User = trim(\" \",extract(\"Failed password for (.+)from\", 1, SyslogMessage) )\r\n| extend SourceIP = extract(\"(([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.(([0-9]{1,3})))\",1,SyslogMessage)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where SourceIP !in (vuln_scanner_IPs)\r\n| where not (SourceIP == \"10.222.68.29\" and User in (\"us-svc-ns-swncm\",\"us-svc-ciscoprime\",\"us-svc-netbrain\",\"ACS-R218692\",\"svcsnow\",\"snowuser\",\"cmdb_discovery\",\"collectorlogin\",\"ovoc\"))  \r\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), count(), UserName = strcat_array(todynamic(makeset(User)),\",\"), HostName = strcat_array(todynamic(make_set(HostName)),\",\") by SourceIP,MF\r\n| where EndTime - StartTime <= 5m\r\n| where count_ >= 3\r\n| extend IPCustomEntity = SourceIP \r\n| extend AccountCustomEntity = UserName\r\n| extend HostCustomEntity = HostName;\r\ncefpa | union syslogpa",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1110"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

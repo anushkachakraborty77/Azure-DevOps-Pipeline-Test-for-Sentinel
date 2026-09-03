@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d0384ea6-47bf-4dd1-859c-26320a298d66')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d0384ea6-47bf-4dd1-859c-26320a298d66')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-072 Suspicious outbound DNS queries",
+        "description": "This rule generates alert when DNS queries of TXT or AAAA types are potentially abused by threat actor to achieve Command-and-Control or Exfiltration stages of an attack. The detection logic is based on matching subdomains of TXT or AAAA DNS queries against certain string pattern, or when the volume of TXT records per source IP address exceeds certain threshold.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-072 Suspicious outbound DNS queries\"\r\n| where TimeGenerated >= ago(24h)\r\n| extend A = parse_json(Entities)\r\n| mvexpand A\r\n| extend IPAddress = A.Address\r\n| where isnotempty(IPAddress)\r\n| summarize make_set(IPAddress);\r\nlet dnsset1 = DnsEvents\r\n// Basic conditions to filter the required dataset\r\n| where TimeGenerated > ago (20m)\r\n| where isnotempty(IPAddresses)\r\n| where QueryType == \"TXT\" or QueryType == \"AAAA\"\r\n// Generic Whitelisting and Suppression\r\n| where ClientIP !in (TriggeredUsers)\r\n| where ClientIP !in (vuln_scanner_IPs)\r\n| where ClientIP !in (dns_servers_IPs)\r\n// Whitelisting of certain Names and IP addresses\r\n| where Name !contains \"_kerberos\" and Name !contains \"current.cvd.clamav.net\" and Name !contains \"sophosxl.net\" and Name !contains \"apple.com\" and Name !contains \"_aaplcache\" and Name !contains \"nessus.org\" and Name !contains \"empty\" and Name !contains \"debug.opendns.com\"\r\n| where ClientIP !in (\"10.128.111.98\" , \"10.166.122.30\", \"10.204.4.94\" , \"10.199.255.13\")\r\n// preparation of data\r\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), make_set(Computer), count() by ClientIP, Name,QueryType\r\n| extend TimeSpan = EndTime - StartTime\r\n| where (count_ >= 20 and TimeSpan <= timespan(00:15:00) and QueryType == \"TXT\") or (Name matches regex \"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$\" and strlen(tostring(split(Name,\".\")[0]))>20)\r\n| extend Host = strcat_array(set_Computer, \",\")\r\n| extend Domain=Name\r\n| extend SourceIP=ClientIP;\r\ndnsset1\r\n| extend HostCustomEntity = Host\r\n| extend IPCustomEntity = SourceIP",
+        "queryFrequency": "PT15M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T1071",
+          "T1132"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

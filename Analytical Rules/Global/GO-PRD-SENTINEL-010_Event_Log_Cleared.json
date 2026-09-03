@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/3e5da786-5a7f-4f5a-a03a-6d7d3e159d6c')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/3e5da786-5a7f-4f5a-a03a-6d7d3e159d6c')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-010 Event Log Cleared",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-010 Event Log Cleared\" \r\n| where TimeGenerated >= ago(24h) \r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend User = tostring(A.Name)\r\n| where isnotempty(User)\r\n| summarize make_list(User);\r\n\r\nlet timeframe = 10m;\r\nSecurityEvent1\r\n| where TimeGenerated >= ago(timeframe)\r\n| where EventID == 1102\r\n| extend SubjectUserName = tostring(parse_xml(EventData).[\"UserData\"].[\"LogFileCleared\"].[\"SubjectUserName\"])\r\n| where SubjectUserName !in (TriggeredUsers)\r\n| summarize count() by StartTimeUtc = TimeGenerated, Computer, SubjectUserName,EventID, Activity,MF\r\n| extend timestamp = StartTimeUtc, AccountCustomEntity = SubjectUserName, HostCustomEntity = Computer",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

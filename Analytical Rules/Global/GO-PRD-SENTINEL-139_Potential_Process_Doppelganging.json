@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/432c0c94-5bb4-42f8-a985-26694dd83608')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/432c0c94-5bb4-42f8-a985-26694dd83608')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-139 Potential Process Doppelganging",
+        "description": "This rule detects potential process injection technique known as process doppelgänging, where adversaries may inject malicious code into process\norder to evade process-based defenses as well as possibly elevate privileges. \nProcess doppelgänging is a method of executing arbitrary code in the address space of a separate live process.   RITM1397976",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let TriggeredUsers =\r\n    SecurityAlert\r\n    | where DisplayName == \"GO-PRD-SENTINEL-139 Potential Process Doppelganging\"\r\n    | where TimeGenerated >= ago(24h)\r\n    | extend A = parse_json(Entities)\r\n    | mvexpand A\r\n    | extend User = A.Name\r\n    | where isnotempty(User)\r\n    | summarize make_list(User);\r\nlet RollbackEvents = SecurityEvent1 // Step 1: NTFS rollback events\r\n    | where TimeGenerated > ago(10m)\r\n    | where EventID == 4985 // NTFS transaction state changed (rollback)\r\n    | where Account !in (TriggeredUsers)\r\n    | where not (\r\n                ((ProcessName has_any (\"TiWorker.exe\", \"poqexec.exe\", \"trustedinstaller.exe\")\r\n        or ParentProcessName has_any (\"TiWorker.exe\", \"poqexec.exe\", \"trustedinstaller.exe\")))\r\n        and CommandLine contains \"WinSxS\"\r\n            )\r\n    | project\r\n        RollbackTime = TimeGenerated,\r\n        Initiator = Account,\r\n        InitiatorType = AccountType,\r\n        TargetHost = Computer,\r\n        RollbackProcessName = Process,\r\n        RollbackProcessPath = ProcessName,\r\n        EventID;\r\nlet ProcessCreation = SecurityEvent1 // Step 2: Suspicious process creation\r\n    | where TimeGenerated > ago(10m)\r\n    | where EventID == 4688\r\n    | where CommandLine has_any (\"TxF\", \"Rollback\", \"Transaction\")\r\n    | where Account !in (TriggeredUsers)\r\n    | where not (\r\n                ((NewProcessName has_any (\"TiWorker.exe\", \"poqexec.exe\", \"trustedinstaller.exe\")\r\n        or ParentProcessName has_any (\"TiWorker.exe\", \"poqexec.exe\", \"trustedinstaller.exe\")))\r\n        and CommandLine contains \"WinSxS\"\r\n            )\r\n    | project\r\n        ProcCreateTime = TimeGenerated,\r\n        Initiator = Account,\r\n        InitiatorType = AccountType,\r\n        TargetHost = Computer,\r\n        SuspiciousProcessName = NewProcessName,\r\n        SuspiciousCommandLine = CommandLine,\r\n        ParentProcessName,\r\n        EventID;\r\nlet TxFCalls = SecurityEvent1 // Step 3: TxF API calls (object access)\r\n    | where TimeGenerated > ago(10m)\r\n    | where EventID in (4656, 4663)\r\n    | where ObjectName has_any (\"TxF\", \"Transaction\")\r\n    | summarize TxFCallCount = count() by Account, Computer, bin(TimeGenerated, 30m);\r\nRollbackEvents // Step 4: Correlate rollback + process creation + TxF API usage\r\n| join kind=inner (ProcessCreation) on Initiator, TargetHost\r\n| where abs(datetime_diff('minute', RollbackTime, ProcCreateTime)) <= 30\r\n| join kind=inner (TxFCalls) on $left.Initiator == $right.Account and $left.TargetHost == $right.Computer\r\n| where TxFCallCount >= 1\r\n| extend TargetDevice = TargetHost, AccountName = Initiator, HostCustomEntity = TargetHost\r\n| project\r\n    TargetDevice,\r\n    AccountName,\r\n    RollbackTime,\r\n    ProcCreateTime,\r\n    RollbackProcessName,\r\n    RollbackProcessPath,\r\n    SuspiciousProcessName,\r\n    SuspiciousCommandLine,\r\n    ParentProcessName,\r\n    TxFCallCount\r\n| order by ProcCreateTime desc",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "PrivilegeEscalation",
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1055"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P1D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": {},
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "TargetDevice"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/cc5d2419-6030-458b-8753-82eeb163274d')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/cc5d2419-6030-458b-8753-82eeb163274d')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-036 DNS Zone Transfer Attempt",
+        "description": "This use case detects the attempt to exploit a DNS server misconfiguration in order to leak KPMG DNS records over a DNS Zone Transfer Transaction. \nA threat actor may send zone transfer queries to a misconfigured DNS server and subsequently get a copy of DNS records.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-036 DNS Zone Transfer Attempt\" \r\n| where TimeGenerated >= ago(24h)\r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend IP = tostring(A.Address)\r\n| where isnotempty(IP)\r\n| distinct IP;\r\ndns\r\n| where TimeGenerated > ago (10m)\r\n| where IP !in (TriggeredIPs)\r\n| where IP !in (vuln_scanner_IPs)\r\n| where RawData matches regex @\"]\\s(A|I)XFR\\s\\s\"        \r\n| where QueryResponseIndicator =~ \"R\" \r\n| where Response !has \"REFUSED\"                      \r\n| where  ipv4_is_private(IP) == false\r\n| extend RecordType = \"XFR\"     \r\n| project-rename ClientIP = IP\r\n| union ( Infobloxdns\r\n| where ClientIP !in (TriggeredIPs)\r\n| where TimeGenerated > ago (10m)\r\n| where RecordType in (\"AXFR\",\"IXFR\")\r\n| where isnotempty( Result)\r\n| where Result != \"REFUSED\"\r\n| extend EventTime = tostring(EventTime)\r\n| where  ipv4_is_private(ClientIP) == false\r\n| project-rename Response = Result)\r\n| extend HostCustomEntity = HostName\r\n| extend IPCustomEntity = ClientIP\r\n| extend URLCustomEntity = Domain",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Host"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

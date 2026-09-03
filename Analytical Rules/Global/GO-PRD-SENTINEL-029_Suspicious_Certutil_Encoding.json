@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/785c3d4a-a341-46da-8831-9f2d4f780011')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/785c3d4a-a341-46da-8831-9f2d4f780011')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-029 Suspicious Certutil Encoding",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\nSecurityAlert\n| where DisplayName contains \"GO-PRD-SENTINEL-029 Suspicious Certutil Encoding\"\n| where TimeGenerated >= ago(24h)\n| extend A = parse_json(Entities)\n| mvexpand A\n| extend User = tostring(A.Name)\n| where isnotempty(User)\n| summarize make_list(User);\nSecurityEvent\n| where EventID == 4688\n| extend FileName = tostring(split(NewProcessName, '\\\\')[-1])\n| where (CommandLine contains \"-f -encode\" or CommandLine contains \"-encode -f\")\n| where FileName == \"certutil.exe\"\n| where AccountName !in (TriggeredUsers)\n| extend AccountCustomEntity = AccountName, HostCustomEntity = Computer",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1027"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "Host"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

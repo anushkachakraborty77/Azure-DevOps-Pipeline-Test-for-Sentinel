@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/36cd1407-6a97-476e-a360-ee9e7eeb1a5f')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/36cd1407-6a97-476e-a360-ee9e7eeb1a5f')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "[IGNORE] GO-PRD-SENTINEL-142 Palo Alto Strata Logging Services - External Port Scanning Activity",
+        "description": "The objective of this use case is to detect and monitor external port scanning activity against internal/private assets using Palo Alto Strata traffic logs ingested into Microsoft Sentinel.\n\nThis detection identifies suspicious external/public source IPs attempting to scan internal assets by either targeting multiple ports on a single internal destination (Vertical port scanning) or scanning multiple internal destinations on the same port (Horizontal port scanning) within a short time window.\n\nThe purpose of this use case is to identify potential external reconnaissance activity, early-stage attacker probing, unauthorized scanning attempts, and possible pre-exploitation behavior targeting internal network assets.",
+        "severity": "High",
+        "enabled": true,
+        "query": "let VerticalThreshold = 150; \r\nlet HorizontalThreshold = 10; // updated from 5 to 10\r\nlet ScanLookback = 5m;\r\nlet BinTimeBucket = 5m;\r\nlet AlertSuppressionTimeWindow = 24h;\r\nlet AllowedTrafficTimeWindow = 24h;\r\n//\r\n//Alert Suppression Block\r\nlet TriggeredIPs = SecurityAlert\r\n    | where TimeGenerated >= ago(AlertSuppressionTimeWindow)\r\n    | extend RuleName = tostring(parse_json(ExtendedProperties).[\"Analytic Rule Name\"])\r\n    | where RuleName has \"GO-PRD-SENTINEL-142 Palo Alto Strata Logging Services - External Port Scanning Activity\" // Currenlty using has since rule name will be having ingore tag, before moving in prod chnge it to ==\r\n    | extend SourceIP =tostring(parse_json(Entities)[0].Address)\r\n    | where isnotempty(SourceIP)\r\n    | distinct SourceIP;\r\n//\r\n//Vertical Port Scan - External source scanning multiple ports on same internal destination\r\nlet VerticalScan = GO_PaloAltoStrataLoggingService\r\n    | where TimeGenerated >= ago(ScanLookback)\r\n    | where Activity == 'TRAFFIC'\r\n    | where Action != \"allow\"\r\n    | where isnotempty(DestinationPort) \r\n        and isnotempty(SourceIP) \r\n        and isnotempty(DestinationIP)\r\n    | where not(ipv4_is_private(SourceIP)) and ipv4_is_private(DestinationIP)\r\n    | summarize\r\n        DistinctDestinationPortCount   = dcount(DestinationPort),\r\n        PortSet         = make_set(DestinationPort, 50),\r\n        Action          = make_set(Action),\r\n        FirstSeen = min(TimeGenerated),\r\n        LastSeen = max(TimeGenerated),\r\n        EventCount      = count()\r\n        by SourceIP, DestinationIP, MF, bin(TimeGenerated, BinTimeBucket)\r\n    | where DistinctDestinationPortCount >= VerticalThreshold\r\n    | extend\r\n        ScanType        = \"External Vertical Port Scan\",\r\n        Description     = strcat(\"Single target \", DestinationIP, \" scanned across \", DistinctDestinationPortCount, \" ports\"),\r\n        IPCustomEntity  = SourceIP;\r\n//\r\n//Horizontal Port Scan - External source scanning many internal hosts on same port\r\nlet HorizontalScan = GO_PaloAltoStrataLoggingService\r\n    | where TimeGenerated >= ago(ScanLookback)\r\n    | where Activity == 'TRAFFIC'\r\n    | where Action != \"allow\"\r\n    | where isnotempty(DestinationPort) \r\n        and isnotempty(SourceIP) \r\n        and isnotempty(DestinationIP)\r\n    | where not(ipv4_is_private(SourceIP)) and ipv4_is_private(DestinationIP)\r\n    | summarize\r\n        DistinctDestinationIPCount       = dcount(DestinationIP),\r\n        DestinationIPSet    = make_set(DestinationIP, 50),\r\n        Action              = make_set(Action),\r\n        FirstSeen = min(TimeGenerated),\r\n        LastSeen = max(TimeGenerated),\r\n        EventCount = count()\r\n        by SourceIP, DestinationPort, MF, bin(TimeGenerated, BinTimeBucket)\r\n    | where DistinctDestinationIPCount >= HorizontalThreshold\r\n    | extend\r\n        ScanType        = \"External Horizontal Port Scan\",\r\n        Description     = strcat(\"Single port \", DestinationPort, \" scanned across \", DistinctDestinationIPCount, \" hosts\"),\r\n        IPCustomEntity  = SourceIP;\r\n//\r\n// Union of both Scans\r\nlet ScannerResults = union VerticalScan, HorizontalScan\r\n    | where SourceIP !in (TriggeredIPs);\r\n//\r\n// Combination of SourceIP and MF which will be correlated with allowed traffic\r\nlet ScannerPairs = ScannerResults\r\n    | where isnotempty(SourceIP) and isnotempty(MF)\r\n    //| project SourceIP = tostring(SourceIP), MF = tostring(MF)\r\n    | project SourceIP,MF\r\n    | distinct SourceIP, MF;\r\n//\r\n//Allowed traffic check\r\nlet AllowedTrafficFromScanner = GO_PaloAltoStrataLoggingService\r\n    | where TimeGenerated >= ago(AllowedTrafficTimeWindow)\r\n    | where Activity == 'TRAFFIC'\r\n    | where Action == \"allow\"\r\n    | where isnotempty(DestinationPort) \r\n        and isnotempty(SourceIP) \r\n        and isnotempty(DestinationIP)\r\n        and isnotempty(MF)\r\n    | where not(ipv4_is_private(SourceIP)) and ipv4_is_private(DestinationIP)\r\n    //| extend SourceIP = tostring(SourceIP), MF = tostring(MF)\r\n    | join kind=inner ScannerPairs on SourceIP, MF\r\n    | summarize\r\n        AllowedTrafficCount = count(),\r\n        AllowedFirstSeen = min(TimeGenerated),\r\n        AllowedLastSeen = max(TimeGenerated),\r\n        AllowedAction = make_set(Action)\r\n        by SourceIP, MF;\r\n//\r\n// Final result\r\nScannerResults\r\n| where not(ipv4_is_in_range(SourceIP, \"64.39.102.0/24\")) // Qualys Scanner IP range\r\n| join kind = inner AllowedTrafficFromScanner on SourceIP, MF\r\n| extend Action = set_union(Action, AllowedAction)\r\n| project-away SourceIP1, AllowedAction, MF1",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Discovery",
+          "Reconnaissance"
+        ],
+        "techniques": [
+          "T1046",
+          "T1595"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": [
+              "MF"
+            ]
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {
+          "alertDisplayNameFormat": "[IGNORE] GO-PRD-SENTINEL-142 Palo Alto Strata Logging Services - {{ScanType}} Activity by {{SourceIP}} ",
+          "alertDescriptionFormat": "The objective of this use case is to detect and monitor external port scanning activity against internal/private assets using Palo Alto Strata traffic logs ingested into Microsoft Sentinel.\n\nThis detection identifies suspicious external/public source IPs attempting to scan internal assets by either targeting multiple ports on a single internal destination (Vertical port scanning) or scanning multiple internal destinations on the same port (Horizontal port scanning) within a short time window.\n\nThe purpose of this use case is to identify potential external reconnaissance activity, early-stage attacker probing, unauthorized scanning attempts, and possible pre-exploitation behavior targeting internal network assets.",
+          "alertDynamicProperties": []
+        },
+        "customDetails": {
+          "ScanType": "ScanType",
+          "MF": "MF"
+        },
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

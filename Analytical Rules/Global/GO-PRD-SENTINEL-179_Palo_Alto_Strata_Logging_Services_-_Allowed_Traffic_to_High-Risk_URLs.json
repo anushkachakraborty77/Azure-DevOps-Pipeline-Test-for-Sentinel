@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/83803790-e94a-49b2-9fa0-637cfa48b640')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/83803790-e94a-49b2-9fa0-637cfa48b640')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "[IGNORE] GO-PRD-SENTINEL-179 Palo Alto Strata Logging Services - Allowed Traffic to High-Risk URLs",
+        "description": "This use case detects outbound network traffic that has been allowed or alerted by the Palo Alto to URLs categorized as high-risk, indicating potential exposure to malicious or suspicious web destinations.",
+        "severity": "High",
+        "enabled": true,
+        "query": "GO_PaloAltoStrataLoggingService\r\n| where Action in (\"allow\",\"alert\")\r\n| where Activity in (\"THREAT\",\"TRAFFIC\")\r\n| where URLCategory == \"high-risk\"\r\n| where isnotempty(SourceUsername) and isnotempty(RequestURL)\r\n| project TimeGenerated,Action,Activity,URLCategory,RequestURL,RequestMethod,SourceIP,DestinationIP,SentBytes,ReceivedBytes,Reason,DestinationPort,MF",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "PT15M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T1071",
+          "T1105"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "DestinationIP"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "RequestURL"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

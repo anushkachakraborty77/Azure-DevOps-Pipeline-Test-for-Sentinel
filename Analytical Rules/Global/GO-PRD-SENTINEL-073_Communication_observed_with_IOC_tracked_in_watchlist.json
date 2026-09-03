@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/c7035808-af27-4327-8f15-3f693eff724f')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/c7035808-af27-4327-8f15-3f693eff724f')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-073 Communication observed with IOC tracked in watchlist",
+        "description": "",
+        "severity": "High",
+        "enabled": true,
+        "query": "let TriggeredUsers =  SecurityAlert\r\n    | where DisplayName == \"GO-PRD-SENTINEL-073 Communication observed with IOC tracked in watchlist\"\r\n    | where TimeGenerated >= ago (5h)\r\n    | extend A = parse_json(Entities)\r\n    | mvexpand A\r\n    | extend IPAddress = A.Address\r\n    | where isnotempty(IPAddress)\r\n    | distinct tostring(IPAddress);\r\nlet lookup_time=10m;\r\nlet watchlist_ip = watchlist_IP_IOC\r\n    | union watchlist_ip_IOC_QBOT;\r\nlet watchlist_domain = watchlist_domain_IOC\r\n    | union watchlist_domain_IOC_QBOT;\r\nlet watchlist_hash = watchlist_hash_IOC \r\n    | union watchlist_hash_IOC_QBOT;\r\nlet listofips = watchlist_ip \r\n    | project ioc_ip;\r\nlet listofdomains = watchlist_domain\r\n    | project ioc_domain;\r\nlet listofhashes = watchlist_hash\r\n    | project ioc_Hash;\r\nlet dns1 = DnsEvents\r\n    | where TimeGenerated > ago (lookup_time)\r\n    | where Name has_any (listofdomains) \r\n    | project-rename DestinationHostName=Name, SourceIP=ClientIP\r\n    | where SourceIP !in (TriggeredUsers)\r\n    | extend logcategory=\"dns\";\r\nlet ceflogs_ip = CommonSecurityLog1  \r\n    | where TimeGenerated > ago (lookup_time)\r\n    | where DestinationIP has_any (listofips)\r\n    | extend logcategory =\"network\"\r\n    | where SourceIP !in (TriggeredUsers);\r\nlet pasyslog_ip = paloaltologs\r\n    | where TimeGenerated > ago (lookup_time)\r\n    | where DestinationIP has_any (listofips)\r\n    | where Activity == \"TRAFFIC\"\r\n    | extend logcategory =\"network\"\r\n    | where SourceIP !in (TriggeredUsers);\r\nlet ceflogs_domain = CommonSecurityLog1  \r\n    | where TimeGenerated > ago (lookup_time)\r\n    | where DestinationHostName has_any (listofdomains) \r\n    | extend logcategory =\"network\"\r\n    | where DestinationHostName != \"ineportalapi-weu-prd.securitycenter.windows.com\"\r\n    | where SourceIP !in (TriggeredUsers);\r\nlet pasyslog_domain = paloaltologs\r\n    | where TimeGenerated > ago (lookup_time)\r\n    | where ThreatType == \"url\"\r\n    | where DestinationHostName has_any (listofdomains) \r\n    | where SyslogMessage !has \",CONFIG,\"\r\n    | where DestinationHostName != \"ineportalapi-weu-prd.securitycenter.windows.com\"\r\n    | extend logcategory =\"network\"\r\n    | where SourceIP !in (TriggeredUsers);\r\nlet bclogs_domain = bluecoat\r\n    | where TimeGenerated > ago (lookup_time)\r\n    | where DestinationHostName has_any (listofdomains)\r\n    | where DestinationHostName != \"ineportalapi-weu-prd.securitycenter.windows.com\"\r\n    | extend logcategory =\"network\"\r\n    | where SourceIP !in (TriggeredUsers);\r\nlet sepmlogs_hash=symantec\r\n    | where FileHash in (listofhashes) \r\n    | extend logcategory =\"av\"\r\n    | where SourceIP !in (TriggeredUsers);\r\n(union\r\n    ceflogs_ip,\r\n    pasyslog_ip,\r\n    ceflogs_domain,\r\n    pasyslog_domain,\r\n    bclogs_domain,\r\n    dns1,\r\n    sepmlogs_hash) \r\n| join kind=leftouter watchlist_ip on $left.DestinationIP == $right.ioc_ip\r\n| join kind=leftouter watchlist_domain on $left.DestinationHostName == $right.ioc_domain \r\n| where not (logcategory == \"dns\" and DestinationHostName has_any (watchlist_domain_IOC_QBOT))\r\n| extend IPCustomEntity = SourceIP\r\n| extend HostCustomEntity = HostName",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

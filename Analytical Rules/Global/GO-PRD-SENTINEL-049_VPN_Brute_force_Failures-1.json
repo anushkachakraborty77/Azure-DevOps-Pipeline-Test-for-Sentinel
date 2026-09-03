@@ -1,0 +1,72 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/5bac7066-5ff0-4279-9c4c-92bffb76083d')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/5bac7066-5ff0-4279-9c4c-92bffb76083d')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-049 VPN Brute force Failures-1",
+        "description": "VPN Brute force failures - The rule alerts when failed logins from the same source IP address exceed a certain threshold",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\nSecurityAlert\n| where DisplayName contains \"GO-PRD-SENTINEL-049 VPN Brute force Failures-1\"\n| where TimeGenerated >= ago(24h)\n| extend A = parse_json(Entities)\n| mvexpand A\n| extend Account = A.Account\n| where isnotempty(Account)\n| summarize make_set(Account);\nCommonSecurityLog1\n| where TimeGenerated > ago (10m)\n| where DeviceVendor == \"Palo Alto Networks\"\n| where SourceUserName !in( \"\",\"pre-logon\")\n| where SourceUserName !in(TriggeredUsers)\n| where not(ipv4_is_match( SourceIP,\"130.41.187.64/26\"))\n| where DeviceEventClassID == \"GLOBALPROTECT\"\n| extend Activity=extract('Name=(.*?)\\\\;',1,AdditionalExtensions)\n| extend Result=extract('outcome=(.*?)\\\\;',1,AdditionalExtensions)\n| where Activity  in (\"gateway-auth\",\"portal-auth\")\n| where Result == \"failure\"\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated),count(), makeset(SourceUserName) by SourceIP\n| where EndTime - StartTime < 10m\n| where count_ > 15\n| extend IPCustomEntity = SourceIP",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1110"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

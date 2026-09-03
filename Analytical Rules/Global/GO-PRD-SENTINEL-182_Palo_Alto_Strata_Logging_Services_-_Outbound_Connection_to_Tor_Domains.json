@@ -1,0 +1,106 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d0d75f84-272d-4e3c-b618-6f169e3fa892')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d0d75f84-272d-4e3c-b618-6f169e3fa892')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "[IGNORE] GO-PRD-SENTINEL-182 Palo Alto Strata Logging Services - Outbound Connection to Tor Domains",
+        "description": "Detect outbound connections from internal endpoints to known Tor anonymization infrastructure, such as “.onion” proxy domains and Tor2Web gateways, transiting through Palo Alto Prisma Access. Any match with these Tor domains is a high-confidence indicator of potential C2 communication, data exfiltration staging, or a policy violation.",
+        "severity": "High",
+        "enabled": true,
+        "query": "let TorDomains = dynamic([\".hiddenservice.net\",\r\n    \".onion.ca\",\r\n    \".onion.cab\",\r\n    \".onion.casa\",\r\n    \".onion.city\",\r\n    \".onion.direct\",\r\n    \".onion.dog\",\r\n    \".onion.glass\",\r\n    \".onion.gq\",\r\n    \".onion.ink\",\r\n    \".onion.it\",\r\n    \".onion.link\",\r\n    \".onion.lt\",\r\n    \".onion.lu\",\r\n    \".onion.nu\",\r\n    \".onion.pet\",\r\n    \".onion.plus\",\r\n    \".onion.rip\",\r\n    \".onion.sh\",\r\n    \".onion.to\",\r\n    \".onion.top\",\r\n    \".onion\",\r\n    \".s1.tor-gateways.de\",\r\n    \".s2.tor-gateways.de\",\r\n    \".s3.tor-gateways.de\",\r\n    \".s4.tor-gateways.de\",\r\n    \".s5.tor-gateways.de\",\r\n    \".t2w.pw\",\r\n    \".tor2web.ae.org\",\r\n    \".tor2web.blutmagie.de\",\r\n    \".tor2web.com\",\r\n    \".tor2web.fi\",\r\n    \".tor2web.io\",\r\n    \".tor2web.org\",\r\n    \".tor2web.xyz\",\r\n    \".torlink.co\"]);\r\nGO_PaloAltoStrataLoggingService\r\n| where isnotempty(RequestURL)\r\n| where RequestURL has_any (TorDomains)\r\n| summarize\r\n    FirstSeen = min(TimeGenerated),\r\n    LastSeen = max(TimeGenerated),\r\n    Activity = make_set(Activity),\r\n    ThreatType = make_set(ThreatType),\r\n    SourceIP = make_set(SourceIP, 10),\r\n    SourcePort = make_set(SourcePort, 10),\r\n    DestinationIP = make_set(DestinationIP, 10),\r\n    DestinationPort = make_set(DestinationPort, 10),\r\n    SentBytes = sum(SentBytes),\r\n    ReceivedBytes = sum(ReceivedBytes),\r\n    EventCount = count()\r\n    by RequestURL, SourceUsername\r\n| sort by EventCount",
+        "queryFrequency": "PT30M",
+        "queryPeriod": "PT30M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T1090"
+        ],
+        "subTechniques": [
+          "T1090.003"
+        ],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "URL",
+              "Account"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {
+          "alertDisplayNameFormat": "[IGNORE] GO-PRD-SENTINEL-182 Palo Alto Strata Logging Services - Outbound Connection to Tor Domains - {{{RequestURL}} ",
+          "alertDescriptionFormat": "Detect outbound connections from internal endpoints to known Tor anonymization infrastructure, such as “.onion” proxy domains and Tor2Web gateways, transiting through Palo Alto Prisma Access. Any match with these Tor domains is a high-confidence indicator of potential C2 communication, data exfiltration staging, or a policy violation.",
+          "alertDynamicProperties": []
+        },
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "RequestURL"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "SourceUsername"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "DestinationIP"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

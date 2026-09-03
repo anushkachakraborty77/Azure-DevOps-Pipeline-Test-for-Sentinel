@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/f4191184-2c1d-4776-9c44-a81940db237b')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/f4191184-2c1d-4776-9c44-a81940db237b')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-009 Account Created and Acted Suspiciously",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredTimeFrame = 24h;\r\nlet TriggeredUsers =\r\nSecurityAlert\r\n| where DisplayName contains \"GO-PRD-SENTINEL-009 Account Created and Acted Suspiciously\" \r\n| where TimeGenerated >= ago(TriggeredTimeFrame) \r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend User = tostring(A.Name)\r\n| where isnotempty(User)\r\n| summarize make_list(User);\r\nlet timeframe = 10m;\r\nSecurityEvent1 \r\n| where TimeGenerated > ago(2*timeframe) \r\n// A user account was created\r\n| where EventID == \"4720\"\r\n| where AccountType =~ \"User\"\r\n| project creationTime = TimeGenerated, CreateEventID = EventID, Activity, Computer, TargetUserName, UserPrincipalName, \r\nAccountUsedToCreate = SubjectUserName, TargetSid, SubjectUserSid,MF \r\n| join kind= inner (\r\n  SecurityEvent\r\n  | where TimeGenerated > ago(timeframe) \r\n  // A user account was deleted \r\n  | where EventID == \"4726\" \r\n| where AccountType == \"User\"\r\n| project deletionTime = TimeGenerated, DeleteEventID = EventID, Activity, Computer, TargetUserName, UserPrincipalName, \r\nAccountUsedToDelete = SubjectUserName, TargetSid, SubjectUserSid \r\n) on Computer, TargetUserName\r\n| where deletionTime - creationTime < 10m\r\n| extend TimeDelta = deletionTime - creationTime\r\n| where tolong(TimeDelta) >= 0\r\n| where AccountUsedToCreate !in (TriggeredUsers)\r\n| project TimeDelta, creationTime, CreateEventID, Computer, TargetUserName, UserPrincipalName, AccountUsedToCreate, \r\ndeletionTime, DeleteEventID, AccountUsedToDelete,MF\r\n| extend timestamp = creationTime, AccountCustomEntity = AccountUsedToCreate, HostCustomEntity = Computer",
+        "queryFrequency": "PT20M",
+        "queryPeriod": "PT20M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

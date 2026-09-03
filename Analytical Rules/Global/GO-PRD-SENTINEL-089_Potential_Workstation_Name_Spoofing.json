@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2d06f05a-bc5a-4ef2-b79a-ca5708caaf98')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2d06f05a-bc5a-4ef2-b79a-ca5708caaf98')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-089 Potential Workstation Name Spoofing",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let DomainWorkationLogon= SecurityEvent\r\n| where EventID == \"4624\"\r\n| where WorkstationName !in (\"-\",\"\") and IpAddress != \"-\" \r\n| where WorkstationName !startswith \"WIN-\"\r\n| summarize DomWSLogonTime=min(TimeGenerated), DomWorkStationName= make_set(WorkstationName),DomLogonAccount=make_set(Account),DomLogonType=make_set(LogonType),DomLogonProcess=make_set(ProcessName),DomLogonActivity=make_set(Activity)  by IpAddress;\r\nlet NonDomainWorkationLogin=\r\nSecurityEvent\r\n| where EventID == \"4624\"\r\n|  where WorkstationName !in (\"-\",\"\") and IpAddress != \"-\"\r\n| where WorkstationName startswith \"WIN-\"\r\n| summarize NonDomWSLogonTime=max(TimeGenerated), NonDomWorkStationName= make_set(WorkstationName),NonDomLogonAccount=make_set(Account),NonDomLogonType=make_set(LogonType),NonDomLogonProcess=make_set(ProcessName),NonDomLogonActivity=make_set(Activity) by IpAddress;\r\nNonDomainWorkationLogin | join DomainWorkationLogon on IpAddress\r\n| project-away IpAddress1\r\n| project-reorder DomWSLogonTime,DomWorkStationName,NonDomWSLogonTime,NonDomWorkStationName\r\n| where datetime_diff( \"Minute\",NonDomWSLogonTime,DomWSLogonTime)  > 0",
+        "queryFrequency": "PT2H",
+        "queryPeriod": "PT2H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": null,
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

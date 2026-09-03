@@ -1,0 +1,95 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/0a7273d4-bf73-4c73-bf4e-6612f567ad9b')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/0a7273d4-bf73-4c73-bf4e-6612f567ad9b')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-105 User added and removed from administrative group",
+        "description": "This rule is designed to detect domain/local accounts being elevated to significantly privileged groups, which could be utilised by a threat actor to exploit the administrative privilege of the groups for malicious means, and then the same account being removed from the group in order to attempt to hide the activities from KPMG Administrative personnel with the objective of obstructing any investigations into the threat actors’ activities.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let lookuptime = 6d;\r\nlet TriggeredUser = SecurityAlert\r\n    | where DisplayName == \"GO-PRD-SENTINEL-105 User added and removed from administrative group\"\r\n    | where TimeGenerated >= ago(lookuptime)\r\n    | extend A = parse_json(Entities)\r\n    | extend AddedUserSid = tostring(parse_json(Entities)[0].Sid)\r\n    | extend AddedByUserSid = tostring(parse_json(Entities)[3].Sid)\r\n    | extend concatUsers = strcat(AddedUserSid, AddedByUserSid)\r\n    | distinct concatUsers;\r\nlet WellKnownLocalSID = \"S-1-5-32-544$|S-1-5-32-545$\";\r\nlet WellKnownGroupSID = \"S-1-5-21-[0-9]*-[0-9]*-[0-9]*-512$|S-1-5-21-[0-9]*-[0-9]*-[0-9]*-1102$|S-1-5-21-[0-9]*-[0-9]*-[0-9]*-1103$\";\r\nlet UserAddEvent = SecurityEvent1\r\n    | where TimeGenerated > ago (lookuptime)\r\n    | where EventID in (4728, 4732, 4756)\r\n    // 4728 - A member was added to a security-enabled global group\r\n    // 4732 - A member was added to a security-enabled local group\r\n    // 4756 - A member was added to a security-enabled universal group\r\n    | where TargetSid !in (\"S-1-5-32-555\")\r\n    | extend SuppressUser = strcat(MemberSid, SubjectUserSid)\r\n    | where SuppressUser !in (TriggeredUser)\r\n    | where not (SubjectUserName in (\"FTNUIX02$\", \"FTNUIX11$\", \"FTNUIX12$\", \"FTNUIXPG01$\") and SubjectUserSid == \"S-1-5-18\")\r\n    | where TargetSid matches regex WellKnownLocalSID\r\n        or TargetSid matches regex WellKnownGroupSID\r\n        or (TargetSid startswith \"S-1-5-\" and TargetSid endswith \"-519\")\r\n    | project\r\n        AddedActivityTime =TimeGenerated,\r\n        AddedActivityEventID=EventID,\r\n        AddedActivity = Activity,\r\n        AddedComputer = toupper(Computer),\r\n        AddedGroupName = TargetUserName,\r\n        AddedDomain = toupper(TargetDomainName),\r\n        AddedGroupSid = TargetSid,\r\n        AddedActivityPerformedBy= SubjectUserName,\r\n        AddedActivityPerformedBySID = SubjectUserSid,\r\n        MF,\r\n        AddedUserSID = MemberSid,\r\n        AddedAccountType = AccountType\r\n    | extend User_Group = strcat (AddedGroupSid, AddedUserSID, AddedActivityPerformedBySID);\r\nlet UserRemovalEvent = SecurityEvent1\r\n    | where TimeGenerated > ago (lookuptime)\r\n    | where EventID in (4729, 4757, 4733)\r\n    // 4729 - A member was removed from a security-enabled global group\r\n    // 4733 - A member was removed from a security-enabled local group.\r\n    // 4757  - A member was removed from a security-enabled universal group\r\n    | where TargetSid !in (\"S-1-5-32-555\")\r\n    | extend SuppressUser = strcat(MemberSid, SubjectUserSid)\r\n    | where SuppressUser !in (TriggeredUser)\r\n    | where not (SubjectUserName in (\"FTNUIX02$\", \"FTNUIX11$\", \"FTNUIX12$\", \"FTNUIXPG01$\") and SubjectUserSid == \"S-1-5-18\")\r\n    | where TargetSid matches regex WellKnownLocalSID\r\n        or TargetSid matches regex WellKnownGroupSID\r\n        or (TargetSid startswith \"S-1-5-\" and TargetSid endswith \"-519\")\r\n    | project\r\n        RemovalActivityTime =TimeGenerated,\r\n        RemovalActivityEventID=EventID,\r\n        RemovalActivity = Activity,\r\n        RemovalComputer = toupper(Computer),\r\n        RemovalGroupName = TargetUserName,\r\n        RemovalDomain = toupper(TargetDomainName),\r\n        RemovalGroupSid = TargetSid,\r\n        RemovalActivityPerformedBy= SubjectUserName,\r\n        RemovalActivityPerformedBySID = SubjectUserSid,\r\n        MF,\r\n        RemovalUserSID = MemberSid,\r\n        RemovalAccountType = AccountType\r\n    | extend\r\n        User_Group = strcat (RemovalGroupSid, RemovalUserSID, RemovalActivityPerformedBySID);\r\nUserRemovalEvent\r\n| join kind=inner UserAddEvent on User_Group\r\n| extend TimeDeletion_Min = datetime_diff('minute', RemovalActivityTime, AddedActivityTime)\r\n| extend TimeDeletion_NanoSec = datetime_diff('nanosecond', RemovalActivityTime, AddedActivityTime)\r\n| where TimeDeletion_NanoSec <= 518400000000000\r\n| where TimeDeletion_NanoSec > 0\r\n| project\r\n    AddedActivityTime,\r\n    RemovalActivityTime,\r\n    AddedActivityPerformedBy,\r\n    RemovalActivityPerformedBy,\r\n    AddedActivityPerformedBySID,\r\n    RemovalActivityPerformedBySID,\r\n    AddedComputer,\r\n    RemovalComputer,\r\n    AddedGroupName,\r\n    RemovalGroupName,\r\n    AddedUserSID,\r\n    RemovalUserSID,\r\n    AddedGroupSid,\r\n    RemovalGroupSid,\r\n    AddedAccountType,\r\n    RemovalAccountType,\r\n    TimeDeletion_Min,\r\n    TimeDeletion_NanoSec\r\n| project-reorder\r\n    AddedActivityTime,\r\n    RemovalActivityTime,\r\n    AddedActivityPerformedBy,\r\n    RemovalActivityPerformedBy,\r\n    AddedActivityPerformedBySID,\r\n    RemovalActivityPerformedBySID,\r\n    AddedComputer,\r\n    RemovalComputer,\r\n    AddedGroupName,\r\n    RemovalGroupName,\r\n    AddedGroupSid,\r\n    RemovalGroupSid,\r\n    AddedUserSID,\r\n    RemovalUserSID,\r\n    AddedAccountType,\r\n    RemovalAccountType,\r\n    TimeDeletion_Min",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P6D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "PrivilegeEscalation"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Sid",
+                "columnName": "AddedUserSID"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "AddedComputer"
+              }
+            ]
+          },
+          {
+            "entityType": "SecurityGroup",
+            "fieldMappings": [
+              {
+                "identifier": "SID",
+                "columnName": "AddedGroupName"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Sid",
+                "columnName": "AddedActivityPerformedBySID"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/151ff881-9925-40dc-b166-f0002bcc7538')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/151ff881-9925-40dc-b166-f0002bcc7538')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-012 System Time Modification",
+        "description": "This rule detects when the system time of a windows server is modified, which can be a suspicious activity as an attempt to evade or tamper with evidence associating another adversarial activity.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-012 System Time Modification\" \r\n| where TimeGenerated >= ago(24h) \r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend User = tostring(A.Name)\r\n| where isnotempty(User)\r\n| summarize make_list(User);\r\nSecurityEvent\r\n| where EventID == 4616 \r\n| where Process != \"vmtoolsd.exe\" \r\n| where Account !in (TriggeredUsers)\r\n| where Account !contains \"Local Service\" and Process != \"svchost.exe\" | \r\nextend AccountCustomEntity = Account, HostCustomEntity = Computer",
+        "queryFrequency": "PT5H",
+        "queryPeriod": "PT5H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "IP",
+              "Host",
+              "URL",
+              "FileHash"
+            ],
+            "groupByAlertDetails": null,
+            "groupByCustomDetails": null
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

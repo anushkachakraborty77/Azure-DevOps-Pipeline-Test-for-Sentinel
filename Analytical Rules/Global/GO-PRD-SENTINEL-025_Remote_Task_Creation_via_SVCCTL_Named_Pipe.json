@@ -1,0 +1,94 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/24695e80-6789-4f1d-af25-c9c32f2b46e1')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/24695e80-6789-4f1d-af25-c9c32f2b46e1')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-025 Remote Task Creation via SVCCTL Named Pipe",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\nSecurityAlert\n| where DisplayName contains \"GO-PRD-SENTINEL-025 Remote Task Creation via SVCCTL Named Pipe\"\n| where TimeGenerated >= ago(24h)\n| extend A = parse_json(Entities)\n| mvexpand A\n| extend IP = tostring(A.Address)\n| where isnotempty(IP)\n| summarize make_list(IP);\n//\nSecurityEvent1\n| where TimeGenerated > ago (10m)\n| where EventID == \"5145\"\n| where ShareName == \"\\\\\\\\*\\\\IPC$\"\n| where IpAddress !in (TriggeredIPs)\n| where IpAddress !in (\"10.203.160.50\",\"10.224.132.152\",\"10.203.164.140\",\"10.224.132.82\",\"10.224.132.98\")\n| where RelativeTargetName == \"svcctl\"\n| where AccessList has \"%%4417\"\n| extend SourceIp = IpAddress, Account = SubjectUserName, IPCustomEntity = IpAddress, AccountCustomEntity = Account, HostCustomEntity = Computer",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution",
+          "Persistence",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [
+          "T1053"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "Host",
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

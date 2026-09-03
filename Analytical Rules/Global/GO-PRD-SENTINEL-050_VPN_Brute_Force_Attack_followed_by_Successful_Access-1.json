@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/babc4d38-67c5-4574-8f6a-9a385c14e70d')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/babc4d38-67c5-4574-8f6a-9a385c14e70d')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-050 VPN Brute Force Attack followed by Successful Access-1",
+        "description": "VPN Brute Force - A threat actor gains access to a valid account by means of a brute force attack, where the attack was successful, which allowed the threat actor to gain access to the KPMG network. This rule monitors failed logins exceeding certain threshold and are followed by successful login",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\r\n    SecurityAlert\r\n    | where DisplayName contains \"GO-PRD-SENTINEL-050 VPN Brute Force Attack followed by Successful Access-1\"\r\n    | where TimeGenerated >= ago(24h)\r\n    | extend A = parse_json(Entities)\r\n    | mvexpand A\r\n    | extend Account = A.Account\r\n    | where isnotempty(Account)\r\n    | summarize make_set(Account);\r\nlet PrismaFailedUsers=CommonSecurityLog1\r\n    | where TimeGenerated > ago (5m)\r\n    | where DeviceVendor == \"Palo Alto Networks\"\r\n    | where SourceUserName !in(\"\", \"pre-logon\")\r\n    | where SourceUserName !in(TriggeredUsers)\r\n    | where not(ipv4_is_match( SourceIP,\"130.41.187.64/26\"))\r\n    | where DeviceEventClassID == \"GLOBALPROTECT\"\r\n    | extend Activity=extract('Name=(.*?)\\\\;', 1, AdditionalExtensions)\r\n    | extend Result=extract('outcome=(.*?)\\\\;', 1, AdditionalExtensions)\r\n    | where Activity in (\"gateway-auth\", \"portal-auth\")\r\n    | extend logonTime=todatetime(extract('PanOSTimeGeneratedHighResolution=(.*?)\\\\;', 1, AdditionalExtensions))\r\n    | where Result == \"failure\"\r\n    | summarize\r\n        StartTime_FailedAuth = min(logonTime),\r\n        EndTime_FailedAuth = max(logonTime),\r\n        count(),\r\n        makeset(SourceIP)\r\n        by SourceUserName\r\n    | where EndTime_FailedAuth - StartTime_FailedAuth < 5m\r\n    | where count_ > 7;\r\nCommonSecurityLog1\r\n| where TimeGenerated > ago (5m)\r\n| where DeviceVendor == \"Palo Alto Networks\"\r\n| where SourceUserName !in(\"\", \"pre-logon\")\r\n| where DeviceEventClassID == \"GLOBALPROTECT\"\r\n| extend Activity=extract('Name=(.*?)\\\\;', 1, AdditionalExtensions)\r\n| extend Result=extract('outcome=(.*?)\\\\;', 1, AdditionalExtensions)\r\n| where Activity in (\"gateway-auth\", \"portal-auth\")\r\n| where Result == \"success\"\r\n| project-rename LogonTime=TimeGenerated\r\n| join kind=innerunique PrismaFailedUsers on SourceUserName\r\n| project-away SourceUserName1\r\n| project-reorder LogonTime, StartTime_FailedAuth, EndTime_FailedAuth, SourceUserName, set_SourceIP\r\n| extend AccountCustomEntity = SourceUserName, IPCustomEntity = SourceIP",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

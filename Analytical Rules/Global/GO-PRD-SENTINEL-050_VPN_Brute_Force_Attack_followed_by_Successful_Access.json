@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/6a8f891e-1cc4-4628-853d-226d971ce9b4')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/6a8f891e-1cc4-4628-853d-226d971ce9b4')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-050 VPN Brute Force Attack followed by Successful Access",
+        "description": "VPN Brute Force - A threat actor gains access to a valid account by means of a brute force attack, where the attack was successful, which allowed the threat actor to gain access to the KPMG network. This rule monitors failed logins exceeding certain threshold and are followed by successful login",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName contains \"GO-PRD-SENTINEL-050 VPN Brute Force Attack followed by Successful Access\"\r\n| where TimeGenerated >= ago(24h)\r\n| extend A = parse_json(Entities)\r\n| mvexpand A\r\n| extend IP = tostring(A.Address)\r\n| where isnotempty(IP)\r\n| summarize make_list(IP);\r\nlet timeframe = 5m;\r\nlet threshold = 3;\r\nlet FirewallVendor = \"Cisco\";\r\nlet FirewallProduct = \"ASA\";\r\nlet FWLogs=() {\r\nCommonSecurityLog1\r\n| where TimeGenerated >= ago(timeframe)\r\n| where DeviceVendor =~ FirewallVendor and DeviceProduct =~ FirewallProduct \r\n};\r\nlet FailedUsers = \r\nFWLogs\r\n| extend UserName = case( Message contains \"user authentication Rejected\", tostring(split(split(Message, \":\")[4], \"=\")[1]) \r\n\t\t\t \t\t\t ,Message contains \"User authentication failed\", tostring(split(Message, \":\")[4]) \r\n                         , \"\"\r\n\t\t\t\t\t\t)\r\n| where isnotempty(UserName)\r\n| summarize count() by UserName, DeviceAddress\r\n| where count_ >= threshold\r\n| summarize make_list(UserName);\r\n//See if any of these users have sucessfully logged in\r\nlet SucceededUser = \r\nFWLogs\r\n| where Message contains \"User authentication succeeded\"\r\n| extend UserName = tostring(split(Message, \":\")[4])\r\n| where UserName in (FailedUsers)\r\n| extend SourceIp = extract(\"(([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.(([0-9]{1,3})))\",1,Message)\r\n| where SourceIp !in (TriggeredIPs)\r\n| extend Threat = strcat(UserName, \" succeeded after \", threshold, \" failures\" );\r\nSucceededUser\r\n| extend timestamp = TimeGenerated, AccountCustomEntity = UserName, IPCustomEntity = SourceIp",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

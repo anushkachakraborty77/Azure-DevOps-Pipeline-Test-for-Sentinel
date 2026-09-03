@@ -1,0 +1,93 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/3778c2fe-2371-4a51-ad0e-b4c25b74b4ba')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/3778c2fe-2371-4a51-ad0e-b4c25b74b4ba')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-040 Suspicious Windows Processes",
+        "description": "This Use Case is designed to detect presence of any suspicious processes on a windows machine\n",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-040 Suspicious Windows Processes\" \r\n| where TimeGenerated >= ago(24h) \r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend User = tostring(A.Name)\r\n| where isnotempty(User)\r\n| summarize make_list(User);\r\nSecurityEvent1\r\n| where TimeGenerated > ago (5m)\r\n | where EventID == 4688 \r\n | where Process != \"\" and ParentProcessName !has \"dllhost.exe\" and ParentProcessName !has \"searchindexer.exe\" \r\n | where  CommandLine has \"mimilib\" or CommandLine has \"3 eo.oe\" or CommandLine has \"eo.oe.kiwi\" or CommandLine has \"privilege::debug\"\r\n | where Account !in (TriggeredUsers)\r\n or CommandLine has \"sekurlsa::logonpasswords\" or CommandLine has \"lsadump::sam\" or CommandLine has \"mimidrv.sys\"\r\n| extend AccountCustomEntity = Account\r\n| extend HostCustomEntity = Computer\r\n| extend IPCustomEntity = IpAddress",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Persistence",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [
+          "T1543"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "Host",
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

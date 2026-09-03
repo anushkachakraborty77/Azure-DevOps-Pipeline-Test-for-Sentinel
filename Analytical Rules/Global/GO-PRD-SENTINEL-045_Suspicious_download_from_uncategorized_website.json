@@ -1,0 +1,72 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/499563bc-aa0e-48ee-913e-e34d992d56b4')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/499563bc-aa0e-48ee-913e-e34d992d56b4')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-045 Suspicious download from uncategorized website",
+        "description": "",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-045 Suspicious download from uncategorized website\" \r\n| where TimeGenerated >= ago(24h) \r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend IP = A.Address\r\n| where isnotempty(IP)\r\n| project IP; \r\nlet PrismaAccessLogs=CommonSecurityLog1\r\n| where TimeGenerated > ago (10m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where DeviceVendor == \"Palo Alto Networks\"\r\n| where DeviceEventClassID == \"THREAT\" \r\n// Exclude Private Destination Addresses and Privated Destination Translated Addresses\r\n| where DestinationIP !startswith \"130.41.187.\"\r\n| extend parsed_dst_IP = parse_ipv4(DestinationIP), parsed_dstnat_IP = parse_ipv4(DestinationTranslatedAddress)\r\n| where parsed_dst_IP !between (parse_ipv4(\"192.168.0.0\") .. parse_ipv4(\"192.168.255\")) and parsed_dst_IP !between ( parse_ipv4(\"10.0.0.0\") .. parse_ipv4(\"10.255.255.255\") )\r\nand parsed_dst_IP !between ( parse_ipv4(\"172.16.0.0\") .. parse_ipv4(\"172.31.255.255\") ) and parsed_dstnat_IP !between (parse_ipv4(\"192.168.0.0\") .. parse_ipv4(\"192.168.255\")) and parsed_dstnat_IP !between ( parse_ipv4(\"10.0.0.0\") .. parse_ipv4(\"10.255.255.255\") )\r\nand parsed_dstnat_IP !between ( parse_ipv4(\"172.16.0.0\") .. parse_ipv4(\"172.31.255.255\") )\r\n| where (DeviceVendor == \"Palo Alto Networks\" and Activity == \"url\")  \r\n| where RequestContext !contains \"text\" and RequestContext !contains \"image\" and RequestContext !contains \"javascript\"\r\n| extend RequestURL= trim_end('\"',RequestURL) \r\n| where RequestURL endswith \".exe\" or RequestURL endswith \".gz\" or RequestURL endswith \".rar\" or RequestURL endswith \".msi\" or RequestURL endswith  \".bat\" or RequestURL endswith \".dll\" or RequestURL endswith \".jar\" or RequestURL endswith  \".ps1\" or RequestURL endswith \".zip\"  or RequestURL endswith \".vba\" or RequestURL endswith \".vbs\"\r\n| where DeviceCustomString2 == \"NULL\" or  DeviceCustomString2 == \"unknown\" or DeviceCustomString2 ==\"insufficient-content\"\r\n| extend category = DeviceCustomString2\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\nlet ceflogs = CommonSecurityLog1\r\n| where TimeGenerated > ago (10m)\r\n| where SourceIP !in (TriggeredIPs)\r\n// Exclude Private Destination Addresses and Privated Destination Translated Addresses\r\n| where DestinationIP !startswith \"130.41.187.\"\r\n| extend parsed_dst_IP = parse_ipv4(DestinationIP), parsed_dstnat_IP = parse_ipv4(DestinationTranslatedAddress)\r\n| where parsed_dst_IP !between (parse_ipv4(\"192.168.0.0\") .. parse_ipv4(\"192.168.255\")) and parsed_dst_IP !between ( parse_ipv4(\"10.0.0.0\") .. parse_ipv4(\"10.255.255.255\") )\r\nand parsed_dst_IP !between ( parse_ipv4(\"172.16.0.0\") .. parse_ipv4(\"172.31.255.255\") ) and parsed_dstnat_IP !between (parse_ipv4(\"192.168.0.0\") .. parse_ipv4(\"192.168.255\")) and parsed_dstnat_IP !between ( parse_ipv4(\"10.0.0.0\") .. parse_ipv4(\"10.255.255.255\") )\r\nand parsed_dstnat_IP !between ( parse_ipv4(\"172.16.0.0\") .. parse_ipv4(\"172.31.255.255\") )\r\n| where (DeviceVendor == \"Palo Alto Networks\" and DeviceEventClassID == \"url\")  or DeviceVendor == \"Forcepoint\" or DeviceVendor == \"McAfee\"\r\n| where RequestContext !contains \"text\" and RequestContext !contains \"image\" and RequestContext !contains \"javascript\"\r\n| extend RequestURL= trim_end('\"',RequestURL)\r\n| where RequestURL endswith \".exe\" or RequestURL endswith \".gz\" or RequestURL endswith \".rar\" or RequestURL endswith \".msi\" or RequestURL endswith  \".bat\" or RequestURL endswith \".dll\" or RequestURL endswith \".jar\" or RequestURL endswith  \".ps1\" or RequestURL endswith \".zip\"  or RequestURL endswith \".vba\" or RequestURL endswith \".vbs\"\r\n| where DeviceCustomString2 == \"NULL\" or  DeviceCustomString2 == \"unknown\" or DeviceCustomString2 ==\"insufficient-content\"\r\n| extend category = DeviceCustomString2\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\nlet pasyslog = paloaltologs \r\n| where TimeGenerated > ago (10m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where ThreatType == \"url\"\r\n// Exclude Private Destination Addresses and Privated Destination Translated Addresses\r\n| where DestinationIP !startswith \"130.41.187.\"\r\n| extend parsed_dst_IP = parse_ipv4(DestinationIP), parsed_dstnat_IP = parse_ipv4(DestinationTranslatedAddress)\r\n| where parsed_dst_IP !between (parse_ipv4(\"192.168.0.0\") .. parse_ipv4(\"192.168.255\")) and parsed_dst_IP !between ( parse_ipv4(\"10.0.0.0\") .. parse_ipv4(\"10.255.255.255\") )\r\nand parsed_dst_IP !between ( parse_ipv4(\"172.16.0.0\") .. parse_ipv4(\"172.31.255.255\") ) and parsed_dstnat_IP !between (parse_ipv4(\"192.168.0.0\") .. parse_ipv4(\"192.168.255\")) and parsed_dstnat_IP !between ( parse_ipv4(\"10.0.0.0\") .. parse_ipv4(\"10.255.255.255\") )\r\nand parsed_dstnat_IP !between ( parse_ipv4(\"172.16.0.0\") .. parse_ipv4(\"172.31.255.255\") )\r\n| where ContentType !contains \"text\" and ContentType !contains \"image\" and ContentType !contains \"javascript\"\r\n| where RequestURL endswith \".exe\" or RequestURL endswith \".gz\" or RequestURL endswith \".rar\" or RequestURL endswith \".msi\" or RequestURL endswith  \".bat\" or RequestURL endswith \".dll\" or RequestURL endswith \".jar\" or RequestURL endswith  \".ps1\" or RequestURL endswith \".zip\"  or RequestURL endswith \".vba\" or RequestURL endswith \".vbs\"\r\n| where Category == \"NULL\" or  Category == \"unknown\" or Category ==\"insufficient-content\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\nlet bclogs = bluecoat\r\n| where TimeGenerated > ago (10m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where ContentType !contains \"text\" and ContentType !contains \"image\" and ContentType !contains \"javascript\"\r\n| where RequestURL endswith \".exe\" or RequestURL endswith \".gz\" or RequestURL endswith \".rar\" or RequestURL endswith \".msi\" or RequestURL endswith  \".bat\" or RequestURL endswith \".dll\" or RequestURL endswith \".jar\" or RequestURL endswith  \".ps1\" or RequestURL endswith \".zip\"  or RequestURL endswith \".vba\" or RequestURL endswith \".vbs\"\r\n| where Category == \"NULL\" or  Category == \"unknown\" or Category ==\"insufficient-content\"\r\n| where Disposition !contains \"denied\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\nlet ciscowsa = CiscoWSA\r\n| where TimeGenerated > ago (10m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where ContentType !contains \"text\" and ContentType !contains \"image\" and ContentType !contains \"javascript\"\r\n| where RequestURL endswith \".exe\" or RequestURL endswith \".gz\" or RequestURL endswith \".rar\" or RequestURL endswith \".msi\" or RequestURL endswith  \".bat\" or RequestURL endswith \".dll\" or RequestURL endswith \".jar\" or RequestURL endswith  \".ps1\" or RequestURL endswith \".zip\"  or RequestURL endswith \".vba\" or RequestURL endswith \".vbs\"\r\n| where Category == \"NULL\" or  Category == \"unknown\" or Category ==\"insufficient-content\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\nlet websenselogs = Websense\r\n| where TimeGenerated > ago (10m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where Category == \"153\"\r\n| where ContentType !contains \"text\" and ContentType !contains \"image\" and ContentType !contains \"javascript\"\r\n| where RequestURL endswith \".exe\" or RequestURL endswith \".gz\" or RequestURL endswith \".rar\" or RequestURL endswith \".msi\" or RequestURL endswith  \".bat\" or RequestURL endswith \".dll\" or RequestURL endswith \".jar\" or RequestURL endswith  \".ps1\" or RequestURL endswith \".zip\"  or RequestURL endswith \".vba\" or RequestURL endswith \".vbs\"\r\n| extend IPCustomEntity = SourceIP\r\n| extend URLCustomEntity = RequestURL;\r\nlet alllogs = union isfuzzy=true  ceflogs, pasyslog, bclogs, ciscowsa, websenselogs,PrismaAccessLogs;\r\nalllogs",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1189"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

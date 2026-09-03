@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4e3c3e2c-602e-403c-80ca-dcfc7583d092')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4e3c3e2c-602e-403c-80ca-dcfc7583d092')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "[IGNORE] GO-PRD-SENTINEL-141 Palo Alto Strata Logging Services - Allowed Traffic Involving Forbidden Countries",
+        "description": "Detect network communications between internal resources and external IP addresses geolocated to forbidden countries (Cuba, Iran, Russia, North Korea, Belarus) where traffic is allowed. Provides visibility into potential policy violations, data exfiltration attempts, or command-and-control (C2) communications that bypass existing controls.",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let bl_countries = dynamic(['Cuba', 'Iran', 'Russia', 'North Korea', 'Belarus']);\nGO_PaloAltoStrataLoggingService\n| where Activity == 'TRAFFIC'\n| where Action == \"allow\"\n| where MaliciousIPCountry in (bl_countries)\n| summarize\n    count(),\n    make_set(DestinationIP),\n    make_set(DestinationPort),\n    sum(SentBytes),\n    sum(ReceivedBytes)\n    by SourceIP, MaliciousIPCountry, Action, SourceUsername",
+        "queryFrequency": "PT15M",
+        "queryPeriod": "PT15M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess",
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T1133",
+          "T1071"
+        ],
+        "subTechniques": [
+          "T1071.001"
+        ],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": {
+          "alertDynamicProperties": []
+        },
+        "customDetails": {
+          "Country": "MaliciousIPCountry"
+        },
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "SourceUsername"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

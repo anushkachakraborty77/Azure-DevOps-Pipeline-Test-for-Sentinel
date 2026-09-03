@@ -1,0 +1,90 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/796fb193-907a-4979-8625-0850b18b76a7')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/796fb193-907a-4979-8625-0850b18b76a7')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-034 Suspicious downloads to URL contains 'wget'",
+        "description": "This Use Case is designed to enable the detection of unsafe and non-interactive download of files from the web with the help of wget utility.\n",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs = SecurityAlert\r\n| where DisplayName contains \"GO-PRD-SENTINEL-034 Suspicious downloads to URL contains\" \r\n| where TimeGenerated >= ago(24h) and TimeGenerated < ago(5m)\r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend IP = A.Address\r\n| where isnotempty(IP)\r\n| project IP;\r\nlet ceflogs = CommonSecurityLog1\r\n| where TimeGenerated> ago(5m)\r\n| where SourceIP !in (TriggeredIPs)\r\n|where DeviceVendor == \"Forcepoint\"  or DeviceVendor == \"Palo Alto Networks\" or DeviceVendor == \"McAfee\"\r\n| where RequestClientApplication has \"Wget\" and DestinationHostName !has \"paloaltonetworks.com\" and DestinationHostName !has \"oracle.com\" and \r\nDestinationHostName !has \"wdc.com\" and DestinationHostName !has \"virusshare.com\" and DestinationHostName !has \"splunk.com\"\r\n| extend URLCustomEntity = RequestURL\r\n| extend IPCustomEntity = SourceIP\r\n| extend AccountCustomEntity = SourceUserName;\r\nlet pasyslog = paloaltologs \r\n| where TimeGenerated> ago(5m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where ThreatType == \"url\"\r\n| where UserAgent has \"Wget\" and RequestURL !has \"paloaltonetworks.com\" and RequestURL !has \"oracle.com\" and \r\nRequestURL !has \"wdc.com\" and RequestURL !has \"virusshare.com\" and RequestURL !has \"splunk.com\"\r\n| extend URLCustomEntity = RequestURL\r\n| extend IPCustomEntity = SourceIP\r\n| extend AccountCustomEntity = SourceUserName;\r\nlet bclogs = bluecoat\r\n| where TimeGenerated> ago(5m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where UserAgent has \"Wget\" and RequestURL !has \"paloaltonetworks.com\" and RequestURL !has \"oracle.com\" and \r\nRequestURL !has \"wdc.com\" and RequestURL !has \"virusshare.com\" and RequestURL !has \"splunk.com\"\r\n| extend URLCustomEntity = RequestURL\r\n| extend IPCustomEntity = SourceIP;\r\nlet ciscowsalogs = CiscoWSA\r\n| where TimeGenerated> ago(5m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where UserAgent has \"Wget\" and RequestURL !has \"paloaltonetworks.com\" and RequestURL !has \"oracle.com\" and RequestURL !has \"wdc.com\" and RequestURL !has \"virusshare.com\" and RequestURL !has \"splunk.com\"\r\n| extend URLCustomEntity = RequestURL\r\n| extend IPCustomEntity = SourceIP;\r\nlet websenselogs = Websense\r\n| where TimeGenerated> ago(5m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where UserAgent has \"Wget\" and RequestURL !has \"paloaltonetworks.com\" and RequestURL !has \"oracle.com\" and RequestURL !has \"wdc.com\" and RequestURL !has \"virusshare.com\" and RequestURL !has \"splunk.com\"\r\n| extend URLCustomEntity = RequestURL\r\n| extend IPCustomEntity = SourceIP;\r\nlet squidlogs = SquidPrxy\r\n| where TimeGenerated> ago(5m)\r\n| where SourceIP !in (TriggeredIPs)\r\n| where UserAgent has \"Wget\" and RequestURL !has \"paloaltonetworks.com\" and RequestURL !has \"oracle.com\" and RequestURL !has \"wdc.com\" and RequestURL !has \"virusshare.com\" and RequestURL !has \"splunk.com\"\r\n| extend URLCustomEntity = RequestURL\r\n| extend IPCustomEntity = SourceIP;\r\nlet alllogs=union pasyslog, ceflogs, bclogs, ciscowsalogs,websenselogs,squidlogs;\r\nalllogs",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T1071"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

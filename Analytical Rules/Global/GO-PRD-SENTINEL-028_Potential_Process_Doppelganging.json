@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/31b0a49e-3086-4638-8bb6-bdb6af632b56')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/31b0a49e-3086-4638-8bb6-bdb6af632b56')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-028 Potential Process Doppelganging",
+        "description": "This rule detects potential process injection technique known as process doppelgänging, where adversaries may inject malicious code into process\norder to evade process-based defenses as well as possibly elevate privileges. \nProcess doppelgänging is a method of executing arbitrary code in the address space of a separate live process.",
+        "severity": "Low",
+        "enabled": false,
+        "query": "let TriggeredUsers =\r\nSecurityAlert\r\n| where DisplayName == \"GO-PRD-SENTINEL-028 Potential Process Doppelganging\" \r\n| where TimeGenerated >= ago(24h) \r\n| extend A = parse_json(Entities) \r\n| mvexpand A\r\n| extend User = A.Name\r\n| where isnotempty(User)\r\n| summarize make_list(User);\r\nSecurityEvent1\r\n| where TimeGenerated > ago (10m)\r\n| where EventID == 4985\r\n| where LogonTypeName <> \"5 - Service\" \r\n| where Process !in ('svchost.exe', 'lsass.exe', 'trustedinstaller.exe','TiWorker.exe','poqexec.exe','dns.exe') and isnotempty( Process)\r\n| where Account !in (TriggeredUsers)\r\n| extend TargetComputer=Computer, AccountCustomEntity = Account, IPCustomEntity = IpAddress, HostCustomEntity = Computer",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [
+          "T1055"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P1D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

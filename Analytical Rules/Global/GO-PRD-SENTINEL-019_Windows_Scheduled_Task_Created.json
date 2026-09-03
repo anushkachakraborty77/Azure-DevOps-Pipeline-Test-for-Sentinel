@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4467da23-8dd2-47cc-b28a-9910b269f43b')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4467da23-8dd2-47cc-b28a-9910b269f43b')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-019 Windows Scheduled Task Created",
+        "description": "A user account has created a scheduled task",
+        "severity": "Low",
+        "enabled": true,
+        "query": "//Last updated by Cyber Tools Management on 2nd June 2021\n//Previous Update by GSOC on February 2nd, 2021\nlet TriggeredHostNames =\nSecurityAlert\n| where DisplayName contains \"GO-PRD-SENTINEL-019 Windows Scheduled Task Created\"\n| where TimeGenerated >= ago(24h)\n| extend A = parse_json(Entities)\n| mvexpand A\n| extend HostName = tostring(A.Name)\n| where isnotempty(HostName)\n| summarize make_list(HostName);\nSecurityEvent1\n| where TimeGenerated > ago(10m)\n| where EventID == 4698\n| extend data=parse_xml(EventData)\n| extend SubjectUserName =parse_json(tostring(parse_json(tostring(data.EventData)).Data))[1].[\"#text\"] \n| where SubjectUserName !endswith \"$\"\n| where Computer !in (TriggeredHostNames)\n| extend AccountCustomEntity = Account\n| extend HostCustomEntity = Computer\n\n",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution",
+          "Persistence"
+        ],
+        "techniques": [
+          "T1053"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Account"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

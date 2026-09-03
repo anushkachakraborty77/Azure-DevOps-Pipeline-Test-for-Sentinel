@@ -1,0 +1,92 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/5a6eddab-b2e0-4e81-a6fc-3d8676b776e9')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/5a6eddab-b2e0-4e81-a6fc-3d8676b776e9')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-042 MSFS EDL feed hits",
+        "description": "This Use Case is designed to detect events when External dynamic lists configured on Palo Alto firewalls (for action=block or deny) are triggered",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredIPs =\nSecurityAlert\n| where DisplayName contains\"GO-PRD-SENTINEL-042 MSFS EDL feed hits\"\n| where TimeGenerated >= ago(24h)\n| extend A = parse_json(Entities)\n| mvexpand A\n| extend IP = tostring(A.Address)\n| where isnotempty(IP)\n| summarize make_list(IP);\n//\nlet ceflogs = CommonSecurityLog1\n| where TimeGenerated > ago (10m)\n| where DeviceCustomString1 in( \"EDL-Malicious\" , \"sec_go_msfs_ip_block\" , \"sec_go_msfs_knet_ip_block_in\" , \"sec_go_msfs_knet_ip_block_out\", \"sec_go_msfs_inet_ip_block_out\", \"sec_go_pa_malicious_block_out\", \"sec_go_pa_high-risk_block_out\")\n| where SourceIP !in (TriggeredIPs);\n\nlet palogs = paloaltologs\n| where TimeGenerated > ago (10m)\n| where Activity == \"TRAFFIC\"\n| where RuleName in( \"EDL-Malicious\" , \"sec_go_msfs_ip_block\" , \"sec_go_msfs_knet_ip_block_in\" , \"sec_go_msfs_knet_ip_block_out\", \"sec_go_msfs_inet_ip_block_out\", \"sec_go_pa_malicious_block_out\", \"sec_go_pa_high-risk_block_out\")\n| where SourceIP !in (TriggeredIPs);\n\nceflogs | union palogs\n| extend AccountCustomEntity = SourceUserName\n| extend IPCustomEntity = SourceIP\n| extend URLCustomEntity = RequestURL;",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Exfiltration"
+        ],
+        "techniques": [
+          "T1020"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [
+              "Account",
+              "IP",
+              "URL"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

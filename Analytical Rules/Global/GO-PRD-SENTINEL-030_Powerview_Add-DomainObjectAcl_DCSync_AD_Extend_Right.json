@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e453d278-6c9e-4d52-8e8a-e355bb512342')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e453d278-6c9e-4d52-8e8a-e355bb512342')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-030 Powerview Add-DomainObjectAcl DCSync AD Extend Right",
+        "description": "https://twitter.com/menasec1/status/1111556090137903104\nhttps://www.specterops.io/assets/resources/an_ace_up_the_sleeve.pdf",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let TriggeredUsers =\nSecurityAlert\n| where DisplayName contains \"GO-PRD-SENTINEL-030 Powerview Add-DomainObjectAcl DCSync AD Extend Right\"\n| where TimeGenerated >= ago(24h)\n| extend A = parse_json(Entities)\n| mvexpand A\n| extend User = tostring(A.Name)\n| where isnotempty(User)\n| summarize make_list(User);\nSecurityEvent\n| where EventID == 5136\n| extend EvData = parse_xml(EventData)\n| extend LDAPDisplayName = tostring(parse_json(tostring(parse_json(tostring(EvData.EventData)).Data))[11].[\"#text\"])\n| where LDAPDisplayName !~ \"nTSecurityDescriptor\"\n| extend AttributeValue = tostring(parse_json(tostring(parse_json(tostring(EvData.EventData)).Data))[13].[\"#text\"])\n| project-away EventData, EvData\n| where AttributeValue contains \"1131f6ad-9c07-11d1-f79f-00c04fc2dcd2\" or AttributeValue contains \"1131f6aa-9c07-11d1-f79f-00c04fc2dcd2\"\n| where SubjectUserSid !startswith \"S-1-5-32-544\"\n| where SubjectUserName !in (TriggeredUsers)\n| extend AccountCustomEntity = SubjectUserName, HostCustomEntity = Computer",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess",
+          "Persistence"
+        ],
+        "techniques": [
+          "T1098"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

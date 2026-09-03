@@ -1,0 +1,90 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/0ddc5db3-6ac0-4deb-886f-16cde7af4e78')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/0ddc5db3-6ac0-4deb-886f-16cde7af4e78')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "GO-PRD-SENTINEL-007 Hack tools from FireEye breach",
+        "description": "The rule matches PaloAlto Firewall's detection of certain indicators that are assocaited with FireEye Breach.\nhttps://www.fireeye.com/blog/products-and-services/2020/12/fireeye-shares-details-of-recent-cyber-attack-actions-to-protect-community.html",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let pasyslog=paloaltologs\n| where SyslogMessage has_any (\",THREAT,spyware,\",\",THREAT,vulnerability.\")\n| where ThreatID in(\"86215\",\"86216\",\"86217\",\"86219\", \"86220\",\"86221\" ,\"86222\", \"86223\", \"86225\", \"86227\");\n\nlet pacef=\nCommonSecurityLog\n| where DeviceVendor == \"Palo Alto Networks\"\n| where DeviceEventClassID in( \"spyware\",\"vulnerability\")\n| extend Signature = extract(\"cat=([^;]+)\", 1 , AdditionalExtensions)\n| where Signature has_any (\"86215\",\"86216\",\"86217\",\"86219\", \"86220\",\"86221\" ,\"86222\", \"86223\", \"86225\", \"86227\");\n\npasyslog| union pacef\n| extend HostCustomEntity = HostName\n| extend IPCustomEntity = SourceIP\n| extend URLCustomEntity = RequestURL",
+        "queryFrequency": "PT10M",
+        "queryPeriod": "PT10M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T0885"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Host"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": null,
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "HostCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPCustomEntity"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "URLCustomEntity"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}
