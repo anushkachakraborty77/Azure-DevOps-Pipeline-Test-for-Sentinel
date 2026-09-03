@@ -1,0 +1,102 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2ca4e7fc-c61a-49e5-9736-5da8035c47e0')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2ca4e7fc-c61a-49e5-9736-5da8035c47e0')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - Critical Threat Detected from Carbon Black Alerts",
+        "description": "This creates an incident in the event a critical threat was identified on a Carbon Black managed endpoint. \n",
+        "severity": "High",
+        "enabled": true,
+        "query": "let queryFrequency = ago(1h);\nlet threshold = 8;\nCarbonBlackNotifications_CL\n| where TimeGenerated >= queryFrequency\n| where threatInfo_score_d >= threshold\n| project \n       TimeGenerated,\n       Severity = deviceInfo_targetPriorityType_s,\n       ThreatScore = threatInfo_score_d,\n       Summary = threatInfo_summary_s,\n       ThreatCategory = threatInfo_threatCause_threatCategory_s,\n       Actor = threatInfo_threatCause_actorName_s,\n       ActorHash = threatInfo_threatCause_actor_s,\n       ProcessID = threatInfo_threatCause_actorProcessPPid_s,\n       ThreatIndicators = threatInfo_indicators_s,\n       ThreatCauseReputation= threatInfo_threatCause_reputation_s,\n       HostName = tostring(split(deviceInfo_deviceName_s, '\\\\')[1]) ,\n       HostId = deviceInfo_deviceId_d,\n       IpAddr = deviceInfo_internalIpAddress_s,\n       HostType = deviceInfo_deviceType_s,\n       HostOS = deviceInfo_deviceVersion_s,\n       HostGroup = deviceInfo_groupName_s,\n       NTDomain = tostring(split(deviceInfo_email_s, '\\\\')[0]),\n       UserName = tostring(split(deviceInfo_email_s, '\\\\')[1]),\n       IncidentID = threatInfo_incidentId_g,\n       AlertLink = url_s\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "ResourceDevelopment",
+          "Impact"
+        ],
+        "techniques": [
+          "T1608",
+          "T1499"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Host"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {
+          "alertDescriptionFormat": "{{Summary}}"
+        },
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "HostName"
+              },
+              {
+                "identifier": "OSVersion",
+                "columnName": "HostOS"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IpAddr"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "UserName"
+              },
+              {
+                "identifier": "NTDomain",
+                "columnName": "NTDomain"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

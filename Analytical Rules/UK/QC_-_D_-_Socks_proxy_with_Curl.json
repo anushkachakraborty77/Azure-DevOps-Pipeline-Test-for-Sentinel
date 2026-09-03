@@ -1,0 +1,101 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/21afbf49-0d2a-4780-970d-e319d12f21ea')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/21afbf49-0d2a-4780-970d-e319d12f21ea')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Socks proxy with Curl",
+        "description": "The following detection identifies curl being utilized with a proxy based on command-line arguments - -x, socks, -preproxy and -proxy.\nThis behavior is built into the MetaSploit Framework as a auxiliary module.\nWhat does socks buy an adversary? SOCKS4a extends the SOCKS4 protocol to allow a client to specify a destination domain name rather than an IP address.\nThe SOCKS5 protocol is defined in RFC 1928. It is an incompatible extension of the SOCKS4 protocol;\nit offers more choices for authentication and adds support for IPv6 and UDP, the latter of which can be used for DNS lookups.\nThe protocols, and a proxy itself, allow an adversary to evade controls in place monitoring traffic, making it harder for the defender to identify and track activity.\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let timeframe = ago(1h);\nlet LinDevices = DeviceInfo\n| where Timestamp >=timeframe\n//Extracting only Linux Machines\n| where OSPlatform == \"Linux\"\n| distinct DeviceId;\nDeviceProcessEvents\n| join kind=fullouter  LinDevices on $left.DeviceId == $right.DeviceId\n| where Timestamp >= timeframe\n| where FileName contains \"curl\" and ProcessCommandLine has_any (@\"-x\", @\"socks4a://\", \"socks5\", \"socks4\", @\"--preproxy\", @\"--proxy\")\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [
+          "T1090"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "ProcessId",
+                "columnName": "InitiatingProcessId"
+              },
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          },
+          {
+            "entityType": "File",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "FileName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

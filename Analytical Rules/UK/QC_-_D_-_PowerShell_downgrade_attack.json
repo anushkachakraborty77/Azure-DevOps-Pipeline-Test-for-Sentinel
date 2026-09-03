@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/3a54d195-db82-47ba-87fb-2489f4d96d5f')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/3a54d195-db82-47ba-87fb-2489f4d96d5f')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - PowerShell downgrade attack",
+        "description": "This query identifies when a PowerShell downgrade attack has been executed via the command line and creates a new\nprocess. The analyst must perform a timeline analysis to identify backward and further steps performed by the\nadversary. Adversaries may downgrade or use a version of system features that may be outdated, vulnerable, and/or\ndoes not support updated security controls such as logging. For example, PowerShell versions 5+ includes Script\nBlock Logging (SBL) which can record executed script content. However, adversaries may attempt to execute a previous\nversion of PowerShell that does not support SBL with the intent to impair defenses while running malicious scripts\nthat may have otherwise been detected.\nAdversaries may downgrade and use less secure versions of various features of a system, such as Command and Scripting\nInterpreters or even network protocols that can be abused to enable Adversary-in-the-Middle.\nNote\n - PowerShell 2.0 does not provide a practical mechanism for detailed (e.g. per-command) auditing. \n - PowerShell 3.0 and later provides comprehensive module logging but is only installed by default on Windows 8 or\n Server 2012, which remain uncommon in many corporate environments.\nReference\n - https://attack.mitre.org/techniques/T1562/010/\n - https://attack.mitre.org/techniques/T1059/001/\n - https://www.leeholmes.com/detecting-and-preventing-powershell-downgrade-attacks/\n - https://powershellmagazine.com/2014/07/16/investigating-powershell-attacks/\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceProcessEvents\n| where Timestamp > ago(1h)\n| where ActionType has \"ProcessCreated\"\n| where FileName has \"powershell\"\n| where ProcessCommandLine has \"version 2\"\n| summarize InitiatingProcessFolderPaths = make_set(InitiatingProcessFolderPath), FileNames = make_set(FileName), FolderPaths = make_set(FolderPath), \n          InitiatingProcessCommandLines = make_set(InitiatingProcessCommandLine),ProcessCommandLines = make_set(ProcessCommandLine), \n          InitiatingProcessParentIds = make_set(InitiatingProcessParentId), InitiatingProcessIds = make_set(InitiatingProcessId), ProcessIds = make_set(ProcessId), \n          count() by DeviceName, InitiatingProcessParentFileName, InitiatingProcessFileName, \n                      AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName, \n                      InitiatingProcessIntegrityLevel, ProcessIntegrityLevel\n| project-reorder DeviceName, count_, \n                  InitiatingProcessParentFileName, InitiatingProcessFileName, InitiatingProcessFolderPaths, FileNames, FolderPaths, \n                  InitiatingProcessCommandLines, ProcessCommandLines, \n                  InitiatingProcessParentIds, InitiatingProcessIds, ProcessIds, \n                  AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName, \n                  InitiatingProcessIntegrityLevel, ProcessIntegrityLevel\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion",
+          "Execution"
+        ],
+        "techniques": [
+          "T1562",
+          "T1059"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": {
+          "ProcessCommandLines": "ProcessCommandLines"
+        },
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

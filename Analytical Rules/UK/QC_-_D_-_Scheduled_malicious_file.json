@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/677db32a-90f1-477a-aca5-1bb9054f31a5')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/677db32a-90f1-477a-aca5-1bb9054f31a5')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Scheduled malicious file",
+        "description": "This query will look for Redline task scheduler creations to run malicious files under temp folder every 5 minutes \n'“C:\\Windows\\System32\\schtasks.exe\" /Create /SC MINUTE /MO 1 /TN mnolyk.exe /TR \"C:\\Users\\admin\\AppData\\Local\\Temp\\4b9a106e76\\mnolyk.exe\" /F.\"'\nIt will help Threat hunters find file creation events associated mentioned file path.\nReferences:\n- https://attack.mitre.org/techniques/T1053/\n- https://www.socinvestigation.com/redline-stealer-returns-with-new-ttps-detection-response/\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceProcessEvents\n| where Timestamp > ago(1h) \n| where FileName == \"schtasks.exe\"\n| where ProcessCommandLine has \"sc\" and ProcessCommandLine has \"create\"\n| where InitiatingProcessAccountName !contains \"system\"\n| where ProcessCommandLine matches regex @\"C:\\\\Users\\\\[a-zA-Z0-9_]+\\\\AppData\\\\Local\\\\Temp\\\\[a-zA-Z0-9_]+\\\\[a-zA-Z]+\\.exe$\"\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution"
+        ],
+        "techniques": [
+          "T1053"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

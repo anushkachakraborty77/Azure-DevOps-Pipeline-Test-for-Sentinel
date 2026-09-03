@@ -1,0 +1,97 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/06384747-d303-4ad8-806a-96469c885853')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/06384747-d303-4ad8-806a-96469c885853')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Wipe a disk with DD",
+        "description": "This detection aims to catch the clean wipe of a storage device on a Linux endpoint. This technique if often employed by adversaries to clear their \ntracks and fill the entire storage devices with 0's. This is a known anti-forensics technique. On Linux this can be performed using the \"dd\" tool.\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "//Query for Wiper using DD\nlet timeframe = ago(1h);\nlet LinDevices = DeviceInfo\n| where Timestamp >=timeframe\n| where OSPlatform == \"Linux\"\n| distinct DeviceId;\nDeviceProcessEvents\n| join kind=fullouter  LinDevices on $left.DeviceId == $right.DeviceId\n| where Timestamp >= timeframe\n| where not(ProcessCommandLine has_any (\"swap\", \"/dev/shm\",\"oracleasm\"))\n| where ProcessCommandLine has \"dd\" and ProcessCommandLine has_any(@\"/dev/zero\",@\"/dev/urandom\") and ProcessCommandLine has @\"of=/dev/\"\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1036"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "ProcessCommandLine"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

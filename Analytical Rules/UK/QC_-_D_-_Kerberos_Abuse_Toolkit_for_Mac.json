@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/08784f44-2545-4961-b1d1-ab74548e63db')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/08784f44-2545-4961-b1d1-ab74548e63db')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Kerberos Abuse Toolkit for Mac",
+        "description": "This detection aims to identify Bifrost tool's credential dumping activity on a MacOS device. \nBifrost is an objective C library that can be used for abusing Kernel level API kerberos APIs and manual Kerberos network traffic to allow connections. \nThis allows credential acecss, similar to that of Mimikatz on Windows. \nReferences:\n- https://www.elastic.co/guide/en/security/current/potential-kerberos-attack-via-bifrost.html\n- https://posts.specterops.io/when-kirbi-walks-the-bifrost-4c727807744f\n- https://github.com/its-a-feature/bifrost\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceProcessEvents\n| where Timestamp >= ago(1h)\n| where ProcessCommandLine has_any ('-action dump','-source tickets', '-source keytab', '-action askhash', '-action asktgt', '-action describe -ticket','-action asktgs','-action s4u', '-action ptt')\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1558"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "ProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

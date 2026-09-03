@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/aed66128-ec5d-46d0-9d01-9695b87f3c11')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/aed66128-ec5d-46d0-9d01-9695b87f3c11')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - CST - User Log in after termination date",
+        "description": "Analytic will alert when a user has logged into the environment after their termination date.\nA Customer Service Ticket (CST) will be generated to alert the customer with the information.\n",
+        "severity": "High",
+        "enabled": true,
+        "query": "SailpointTest_CL\n| where attributes_cloudLifecycleState_s contains \"inactive\" // Filter on inactive accounts\n| where attributes_adStatus_s contains \"512\" // Account being enabled.\n| where attributes_adLastLoginTimestamp_s !contains \"01/01/2000 00:00:00\"\n| project\n    TimeGenerated,\n    Alias = alias_s,\n    Name = name_s,\n    GPID = attributes_gpid_s,\n    EmailAddress = emailAddress_s, \n    Location = attributes_location_s,\n    Department = attributes_department_s,\n    CloudLifeCycleStat = attributes_cloudLifecycleState_s,\n    TerminationDate = attributes_termindationdatetype_s,\n    AdStatus = attributes_adStatus_s",
+        "queryFrequency": "PT30M",
+        "queryPeriod": "PT30M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Persistence"
+        ],
+        "techniques": [
+          "T1078"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Account"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": {
+          "GPID": "GPID",
+          "Alias": "Alias",
+          "Location": "Location",
+          "Department": "Department",
+          "TerminationDate": "TerminationDate"
+        },
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "Name"
+              }
+            ]
+          },
+          {
+            "entityType": "Mailbox",
+            "fieldMappings": [
+              {
+                "identifier": "MailboxPrimaryAddress",
+                "columnName": "EmailAddress"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

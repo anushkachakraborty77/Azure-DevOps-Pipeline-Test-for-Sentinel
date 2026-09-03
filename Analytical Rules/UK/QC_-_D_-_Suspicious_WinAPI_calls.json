@@ -1,0 +1,94 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8858d9be-dfcc-4426-8bbe-2728c57ff89f')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/8858d9be-dfcc-4426-8bbe-2728c57ff89f')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Suspicious WinAPI calls",
+        "description": "Adversaries with high privilege access to a host may attempt to access Local Security Authority (LSA) secrets, \nwhich can contain a variety of different credential materials, such as credentials for service accounts.\nLSA secrets are stored in the registry at HKEY_LOCAL_MACHINE\\SECURITY\\Policy\\Secrets \nAdvanced adversaries may use the secrets key to assist with extracting passwords and enumerating other sensitive system information\nPlease take in mind that LSA secrets can also be dumped from memory\nReferences:\n- https://attack.mitre.org/techniques/T1003/004/\n- https://attack.mitre.org/software/S0002/\n- https://attack.mitre.org/software/S0029/\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceEvents\n| where Timestamp > ago(1h)\n| where ActionType in (\"OpenProcessApiCall\", \"ReadProcessMemoryApiCall\", \"CreateRemoteThreadApiCall\", \"WriteToLsassProcessMemory\", \"NtAllocateVirtualMemoryRemoteApiCall\", \"ProcessPrimaryTokenModified\")\n| where FileName has \"lsass\" or isempty(FileName)\n| where (InitiatingProcessCommandLine has \"privilege::debug\" \n      or InitiatingProcessCommandLine contains \"lsadump::lsa /inject\")\n| summarize InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), InitiatingProcessFileName = make_set(InitiatingProcessFileName), InitiatingProcessFolderPath = make_set(InitiatingProcessFolderPath),\n              InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), ProcessCommandLine = make_set(ProcessCommandLine), \n              InitiatingProcessParentId = make_set(InitiatingProcessParentId),InitiatingProcessId = make_set(InitiatingProcessId), ProcessId = make_set(ProcessId), \n              count() by DeviceName, FileName, FolderPath, \n                          AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName,\n                          ProcessTokenElevation, ActionType\n| project-reorder DeviceName, ActionType, FileName, FolderPath,\n                  InitiatingProcessParentFileName, InitiatingProcessFileName, InitiatingProcessFolderPath,\n                  InitiatingProcessCommandLine, ProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId, ProcessId, \n                  AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName,  ProcessTokenElevation \n                  \n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess",
+          "DefenseEvasion",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [
+          "T1003",
+          "T1055"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": {
+          "InitiatingProcessId": "InitiatingProcessId",
+          "InitProcCommandLine": "InitiatingProcessCommandLine"
+        },
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "File",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "FileName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b3c09077-1b23-40d7-8111-d0a69a529005')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b3c09077-1b23-40d7-8111-d0a69a529005')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - (Cross Workspace) ThreatIntel IP to SigninLogs",
+        "description": "Microsoft Defender Threat Intelligence is a platform that conducts threat infrastructure analysis and gathers threat intelligence.\nThis analytic identifies a match in SigninLogs on any IP Indicator of Compromise (IOC) from TI.\n",
+        "severity": "Medium",
+        "enabled": false,
+        "query": "let queryFrequency = 1h;\nlet queryPeriod = 14d;\nlet qcMfaModChecks = qcMfaModificationChecks(); //call the workspace function\nlet mfaModTargetUserIds =\nqcMfaModChecks\n| distinct tostring(TargetId);\nlet AADFunction = (tableName:string){\n    ThreatIntelligenceIndicator\n    | where TimeGenerated >= ago(queryPeriod)\n    | where ExpirationDateTime > now()\n    | summarize LatestIndicatorTime = arg_max(TimeGenerated, *) by IndicatorId\n    | where Active == true\n    // Pick up IOC alerts that contain entities of interest.\n    | where isnotempty(NetworkIP)\n        or isnotempty(EmailSourceIpAddress)\n        or isnotempty(NetworkDestinationIP)\n        or isnotempty(NetworkSourceIP)\n    // Taking the first non-empty value (NetworkIP first) based on potential IOC match availability.\n    | extend IpAddr = iff(isnotempty(NetworkIP), NetworkIP, NetworkDestinationIP)\n    | extend IpAddr = iff(isempty(IpAddr) and isnotempty(NetworkSourceIP), NetworkSourceIP, IpAddr)\n    | extend IpAddr = iff(isempty(IpAddr) and isnotempty(EmailSourceIpAddress), EmailSourceIpAddress, IpAddr)\n    // Using innerunique join flavor to improve performance and only need one match.\n    | join kind=innerunique (\n        table(tableName)\n        | where TimeGenerated >= ago(queryFrequency)\n        | extend Status = parse_json(Status)\n        | evaluate bag_unpack(Status)\n        | extend ErrorCode = column_ifexists(\"errorCode\", \"\")\n        | extend AdditionalDetails = column_ifexists(\"additionalDetails\", \"\")\n        | extend FailureReason = column_ifexists(\"failureReason\", \"\")\n        | where UserId !in (mfaModTargetUserIds) //exclude accounts with recent mfa changes\n        | where AdditionalDetails !in~ (\n            \"MFA not required during Windows broker logon flow\" // MFA not required as IP already seen.\n            \"MFA completed in Azure AD\" // User completed MFA in AAD.\n        )\n        // Remove AAD joined/registered devices.\n        | extend Device = parse_json(DeviceDetail)\n        | evaluate bag_unpack(Device, columnsConflict=\"replace_source\")\n        | extend TrustType = column_ifexists(\"trustType\", \"\")\n        | where TrustType !in~ (\n        \"Hybrid Azure AD joined\",\n        \"Azure AD registered\",\n        \"Azure AD joined\"\n        )\n        // Filter out unsuccessful signins from TI feed.\n        | where ErrorCode in (\n            0,\n            50125,\n            50140,\n            530002\n        )\n        | extend Location = parse_json(LocationDetails)\n        | evaluate bag_unpack(Location)\n        | extend State = column_ifexists(\"state\", \"\")\n        | extend City = column_ifexists(\"city\", \"\")\n        | extend Region = column_ifexists(\"countryOrRegion\", \"\")\n        | extend Location = strcat(City, \", \", State, \" \", Region)\n        | extend IpAddr = IPAddress\n        // Renaming time column so log source clear.\n        | extend SignInTimeGenerated = TimeGenerated\n    ) on IpAddr\n    | where SignInTimeGenerated < ExpirationDateTime\n    | summarize SignInTimeGenerated = arg_max(SignInTimeGenerated, *) by IndicatorId, IpAddr\n    | where ConfidenceScore >= 90\n| project\n    SignInTimeGenerated,\n    Description,\n    ActivityGroupNames,\n    IndicatorId,\n    ThreatType,\n    Url,\n    ExpirationDateTime,\n    ConfidenceScore,\n    IpAddr,\n    UserName = Identity,\n    UserPrincipalName,\n    UserId,\n    UserAgent = UserAgent1,\n    AppDisplayName,\n    AppId,\n    Location,\n    ErrorCode,\n    AdditionalDetails,\n    FailureReason,\n    NetworkIP,\n    NetworkDestinationIP,\n    NetworkSourceIP,\n    EmailSourceIpAddress,\n    Type\n};\nlet AADSignInLogs = AADFunction(\"xw_signinlogs\");\nlet AADNonIntSignInLogs = AADFunction(\"xw_aadnoninteractiveusersigninlogs\");\nunion isfuzzy=true AADSignInLogs, AADNonIntSignInLogs\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P14D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Impact"
+        ],
+        "techniques": [
+          "T1531"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": "f2eb15bd-8a88-4b24-9281-e133edfba315",
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT4H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "UserName"
+              },
+              {
+                "identifier": "AadUserId",
+                "columnName": "UserId"
+              }
+            ]
+          },
+          {
+            "entityType": "Mailbox",
+            "fieldMappings": [
+              {
+                "identifier": "MailboxPrimaryAddress",
+                "columnName": "UserPrincipalName"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IpAddr"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "Url"
+              }
+            ]
+          },
+          {
+            "entityType": "CloudApplication",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AppDisplayName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

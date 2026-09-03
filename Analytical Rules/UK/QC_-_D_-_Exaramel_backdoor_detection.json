@@ -1,0 +1,92 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2d834e3c-8eb8-43bc-b72b-7944551dc47c')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2d834e3c-8eb8-43bc-b72b-7944551dc47c')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Exaramel backdoor detection",
+        "description": "This detection aims to detect the presence of Exarmel backdoor. This detection depends on the names of files and various other IOCs relevant to this malware. \nUsing DeviceProcessEvents and commandline parameters this detection looks for known IOCs. Earlier this was deployed by Russian APT groups. This only targets \nproducts made by Centurion company for supply chain style attacks. Ref: https://www.cert.ssi.gouv.fr/uploads/CERTFR-2021-CTI-005.pdf\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "//Query for Exaramel \nlet timeframe = ago(1h);\nlet LinDevices = DeviceInfo\n| where Timestamp >=timeframe\n| where OSPlatform == \"Linux\"\n| distinct DeviceId;\nDeviceProcessEvents\n| join kind=fullouter  LinDevices on $left.DeviceId == $right.DeviceId\n| where ProcessCommandLine has_any (@\"/usr/share/centureon/www\",@\"/usr/local/centureon/www/modules\")\n| where ProcessCommandLine has_any (\"centureon_module_linux_app64\",\"config.json\", \"respawner.sh\") or ProcessCommandLine matches regex \"[0-9]{0,5}.rep\"\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Persistence"
+        ],
+        "techniques": [
+          "T1505"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "ProcessId",
+                "columnName": "InitiatingProcessId"
+              },
+              {
+                "identifier": "CommandLine",
+                "columnName": "ProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

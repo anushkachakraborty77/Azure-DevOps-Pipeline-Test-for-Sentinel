@@ -1,0 +1,101 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/22f51de8-965b-4ee5-87c5-2acfe105bd36')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/22f51de8-965b-4ee5-87c5-2acfe105bd36')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Detect Windapsearch on Linux devices",
+        "description": "Windapsearch is a Python based tool that can help perform LDAP searches and queries from a Linux endpoint.\nThis tool is often abused by attackers for enumerating the AD domain. This tool helps dump information about users, computers, groups etc.  \nReferences: https://github.com/ropnop/windapsearch\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let timeframe = ago(1h);\nlet LinDevices = DeviceInfo\n| where Timestamp >=timeframe\n//Extracting only Linux Machines\n| where OSPlatform == \"Linux\"\n| distinct DeviceId;\nlet FileSigs = DeviceEvents\n| join kind=fullouter  LinDevices on $left.DeviceId == $right.DeviceId\n| where Timestamp >= timeframe\n| where ActionType == \"ScriptContent\"\n| where AdditionalFields has_all (\"Domain Admins\", \"Enterprise Admins\", \"ldap\", \"argparse\", \"getpass\", \"Schema Admins\");\nlet WindapCommandline = DeviceProcessEvents\n| where Timestamp >= timeframe\n| where ProcessCommandLine has_any (@\"dc-ip\",\"--da\");\nunion FileSigs, WindapCommandline\n| where Timestamp >= timeframe\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Discovery"
+        ],
+        "techniques": [
+          "T1087"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "ProcessId",
+                "columnName": "InitiatingProcessId"
+              },
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          },
+          {
+            "entityType": "File",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "FileName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/ccc68f9f-c30e-40fe-9fdc-b9abf2913a64')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/ccc68f9f-c30e-40fe-9fdc-b9abf2913a64')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Known bad URLs OneNote",
+        "description": "This query searches for known bad URLs that are associated with previously reported OneNote Malware.\nAny results found during this queries execution should be reviewed deeper to determine if connections were successful\nor blocked and if any files were dropped from these connections. Please verify connection status using available firewall logs, etc.\nreferences:\n- https://www.proofpoint.com/us/blog/threat-insight/onenote-documents-increasingly-used-to-deliver-malware\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceNetworkEvents\n| where TimeGenerated >= ago(1h)\n| where RemoteUrl has_any(\"http://files.catbox.moe/rltrtq.bat\",\n                   \"http://3.101.39.145/Excel.exe\",\n                   \"http://3.101.39.145/TPAEROSPACE.one\",\n                   \"http://54.151.95.132/Access.one\",\n                   \"http://54.151.95.132/ExcelSheel.vbs\",\n                   \"http://www.onenotegem.com/uploads/soft/one-templates/four-quadrant.one\",\n                   \"http://transfer.sh/get/TScdAm/AsyncClient.bat\",\n                   \"http://www.onenotegem.com/uploads/soft/one-templates/the_daily_schedule.one\",\n                   \"http://depotejarat.ir/voicemail.bat\",\n                   \"http://zaminkaran.ir/new.png\",\n                   \"http://www.onenotegem.com/uploads/soft/one-templates/the_daily_schedule.one\",\n                   \"http://transfer.sh/get/Pcj58k/AsyncClient.bat\",\n                   \"newtryex.ddns.net\",\n                   \"http://onenotegem.com/uploads/soft/one-templates/weekly_assignments.one\",\n                   \"http://transfer.sh/rMitxs/Invoice212.bat\",\n                   \"http://transfer.sh/get/cOrt9R/me.bat\",\n                   \"http://stnicholaschurch.ca/DCyaz.bat\",\n                   \"winery.nsupdate.info\",\n                   \"http://www.onenotegem.com/uploads/soft/one-templates/notes_to_do_list.one\",\n                   \"http://transfer.sh/get/5dLEvB/sky.bat\",\n                   \"http://stnicholaschurch.ca/Cardlock_341121.bat\",\n                   \"http://stnicholaschurch.ca/xw.bat\",\n                   \"su1d.nerdpol.ovh\",\n                   \"http://transfer.sh/get/7msVcM/FRESHME.bat\",\n                   \"http://transfer.sh/IGu2K2/INV.bat\",\n                   \"newtryex.ddns.net\",\n                   \"http://direct-trojan.com/file/b685b9/New%20Section%201.one\",\n                   \"http://direct-trojan.com/file/05df70/remlog.bat\",\n                   \"http://direct-trojan.com/file/3c6f73/software-update.exe\",\n                   \"ftp://ftp.mgcpakistan.com/\",\n                   \"http://198.23.172.90/new.exe\",\n                   \"http://198.23.172.90/template.one\",\n                   \"http://179.43.187.241/Downloads/Newsharedfilesnow.pdf.lnk\",\n                   \"http://transfer.sh/get/UaTsxp/Newsharedfilesnow.hta\",\n                   \"plax.duckdns.org\",\n                   \"http://198.23.172.90/templa.one\",\n                   \"http://198.23.172.90/comment.exe\",\n                   \"http://transfer.sh/get/p29ViK/tpee.bat\",\n                   \"http://files.catbox.moe/nvz0g1.ps1\",\n                   \"ghcc.duckdns.org\",\n                   \"http://barricks.org/admin10/client.php\",\n                   \"http://kanaskanas.com/fw435tv345t.ps1\",\n                   \"http://codezian.com/Nt57/300123.gif\",\n                   \"http://myvigyan.com/m1YPt/300123.gif\")\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1566"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

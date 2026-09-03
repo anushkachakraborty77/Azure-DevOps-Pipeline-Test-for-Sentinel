@@ -1,0 +1,99 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/75431315-763f-450a-86de-fa4f0947af98')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/75431315-763f-450a-86de-fa4f0947af98')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - DSCL Create Hidden Account",
+        "description": "This detection intends to abuse of dscl utility on MacOS.\nThis LOOBIN can be used to create users, hidden users or even enumerating for password hints. \nReferences:\n- https://support.apple.com/en-in/102099\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceProcessEvents\n| where Timestamp >= ago(1h)\n| where not (InitiatingProcessCommandLine has_any (\"Parallels\", \"wdav\") or ProcessCommandLine has \"mdatp\" or InitiatingProcessCommandLine contains \"com.aternity.agent\") //DE Bug: 12484\n| where not (InitiatingProcessFileName has \"jamf\" or ProcessCommandLine has @\"-plist\" or InitiatingProcessCommandLine has @\"/JAMF/tmp/\") // DE Bug: 11647\n| where FileName has \"dscl\"\n| where ProcessCommandLine has \"-create\" and ProcessCommandLine has \"IsHidden\" // DE Bug Fix: 12637\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Persistence",
+          "PrivilegeEscalation"
+        ],
+        "techniques": [
+          "T1136",
+          "T1626"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "ProcessCommandLine"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

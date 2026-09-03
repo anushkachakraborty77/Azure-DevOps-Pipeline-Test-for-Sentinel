@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/ed4b0beb-7a10-49a0-a1d7-edd6fb38efce')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/ed4b0beb-7a10-49a0-a1d7-edd6fb38efce')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Swift Binary Based",
+        "description": "SwiftBelt is a macOS enumerator inspired by @harmjoy's Windows-based Seatbelt enumeration tool. SwiftBelt does not utilize any command line utilities and instead uses Swift code (leveraging the Cocoa Framework, Foundation libraries, OSAKit libraries, etc.) to perform system enumeration. This can be leveraged on the offensive side to perform enumeration once you gain access to a macOS host. I intentionally did not include any functions that cause pop-ups (ex: keychain enumeration).\nReferences:\n- https://github.com/cedowens/SwiftBelt\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceProcessEvents\n| where Timestamp >= ago(1h)\n| where ProcessCommandLine has_any (\"-CheckFDA\", \"-SecurityTools\", \"-SystemInfo\", \"-LockCheck\", \"-SearchCreds\", \"-Clipboard\", \"-RunningApps\", \"-ListUsers\", \"-LaunchAgents\", \"-BrowserHistory\", \"-SlackExtract\", \"-ShellHistory\", \"-Bookmarks\", \"-ChromeUsernames\", \"-UniversalAccessAuth\", \"-StickieNotes\", \"-TextEditCheck\", \"-JupyterCheck\") \nor InitiatingProcessCommandLine has_any (\"-CheckFDA\", \"-SecurityTools\", \"-SystemInfo\", \"-LockCheck\", \"-SearchCreds\", \"-Clipboard\", \"-RunningApps\", \"-ListUsers\", \"-LaunchAgents\", \"-BrowserHistory\", \"-SlackExtract\", \"-ShellHistory\", \"-Bookmarks\", \"-ChromeUsernames\", \"-UniversalAccessAuth\", \"-StickieNotes\", \"-TextEditCheck\", \"-JupyterCheck\")\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Discovery"
+        ],
+        "techniques": [
+          "T1082"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "ProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

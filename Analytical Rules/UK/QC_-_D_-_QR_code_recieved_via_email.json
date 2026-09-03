@@ -1,0 +1,97 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d88da243-fbd9-4105-b6bc-9a27dbfcdd77')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d88da243-fbd9-4105-b6bc-9a27dbfcdd77')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - QR code recieved via email",
+        "description": "This query looks for quishing emails recieved that contains a picure QR code with random alpha characters as a filename and an image type of PNG.\nHunters should review any results and soft or hard delete recieved emails of concern.\nRef: https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/think-before-you-scan-the-rise-of-qr-codes-in-phishing/\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let TimeFrame = 1h;\nEmailAttachmentInfo\n| where Timestamp > ago(TimeFrame)\n| where FileType contains \"png\"\n| where FileName matches regex @'^[A-Z0-9]{9,10}\\\\.[A-Za-z0-9]+$'\n| where RecipientObjectId != \"\"\n| join EmailEvents on NetworkMessageId\n| where DeliveryAction != \"Blocked\"\n| where DeliveryAction != \"Junked\"\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1566"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Mailbox",
+            "fieldMappings": [
+              {
+                "identifier": "MailboxPrimaryAddress",
+                "columnName": "RecipientEmailAddress"
+              }
+            ]
+          },
+          {
+            "entityType": "Mailbox",
+            "fieldMappings": [
+              {
+                "identifier": "MailboxPrimaryAddress",
+                "columnName": "SenderFromAddress"
+              }
+            ]
+          },
+          {
+            "entityType": "File",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "FileName"
+              }
+            ]
+          },
+          {
+            "entityType": "FileHash",
+            "fieldMappings": [
+              {
+                "identifier": "Value",
+                "columnName": "SHA256"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

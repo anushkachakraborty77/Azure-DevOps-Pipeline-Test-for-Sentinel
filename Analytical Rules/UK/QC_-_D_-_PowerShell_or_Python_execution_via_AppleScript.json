@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/6c484767-97fa-4a03-9cc2-94329f4d7f6d')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/6c484767-97fa-4a03-9cc2-94329f4d7f6d')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - PowerShell or Python execution via AppleScript",
+        "description": "Adversaries use Python based C2 frameworks such as Empire that can execute PowerShell commands etc. on a MacOS device depending on the installation. This detection aims to detect usage of Empire payloads that utilize AppleScript binary that runs Python commands/PowerShell commands. Base64 encoded commands can also be executed via AppleScript on MacOS devices. This query aims to detect the same. \nReferences:\n- https://medium.com /purple-team/creating-malicious-payloads-for-mac-osx-using-empire-tool-f9024432e2dc\n- https://github.com/EmpireProject/Empire\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceProcessEvents\n| where Timestamp >= ago(1h)\n| where not (ProcessCommandLine has_any (\"installer\", \"Snap Camera\"))\n| where not (InitiatingProcessFileName contains \"PanGpHip\" or InitiatingProcessParentFileName contains \"PanGpHip\" or InitiatingProcessCommandLine contains \"GlobalProtect\")\n| where (ProcessCommandLine has \"osascript -e\" and ProcessCommandLine has_all (\"shell script\", \"echo\", \"import sys\", \"base64\")) \nor (InitiatingProcessCommandLine has \"osascript -e\" and InitiatingProcessCommandLine has_all (\"shell script\", \"echo\", \"import sys\", \"base64\"))\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution"
+        ],
+        "techniques": [
+          "T1059"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

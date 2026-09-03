@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/62366ad2-437c-4a37-a5a6-9bd28a5cccbb')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/62366ad2-437c-4a37-a5a6-9bd28a5cccbb')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Anomali Domain indicator matches against Watchguard",
+        "description": "This query will search Azure Sentinel Syslog (watchguard) against Anomali's domain observable data feeds.\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let dt_lookBack = 1h;\nlet ioc_lookBack = 14d;\nlet domain_indicators =  (union isfuzzy=true\n(ThreatIntelligenceIndicator\n| where SourceSystem contains \"Anomali_ASI\"\n| where TimeGenerated > ago(ioc_lookBack) and ExpirationDateTime > now()\n//| summarize LatestIndicatorTime = arg_max(TimeGenerated, *) by IndicatorId\n| where Active == true\n| parse Description with * \"iType:\" iType \";\" *\n| where iType has_any (\"suspicious_domain\", \"mal_domain\", \"c2_domain\", \"apt_domain\")\n| extend Org = iif(isnotempty(split(Description, \";\", 4)), split(Description, \";\", 3), \"No Org\")\n| extend Source = iff((Org == \"No Org\"), split(Description, \";\", 3), split(Description, \";\", 4))\n| extend TI_Domain = DomainName \n)\n);\ndomain_indicators\n  | join kind=innerunique (Syslog\n    | where TimeGenerated > ago(dt_lookBack)\n    // Filter on Watchguard Firebox logs\n    | where SyslogMessage contains \"firebox\"\n    // Extract domain patterns from syslog message\n    | extend WG_domain = extract(\"(([a-z0-9]+(-[a-z0-9]+)*\\\\.)+[a-z]{2,})\",1, tolower(SyslogMessage))\n    | where isnotempty(WG_domain)\n    | extend Syslog_TimeGenerated = TimeGenerated\n  ) on $left.TI_Domain == $right.WG_domain\n| where Syslog_TimeGenerated < ExpirationDateTime\n| summarize LatestIndicatorTime = arg_max(TimeGenerated, *) by IndicatorId\n| project TI_Domain, Org, Tags, Source, LatestIndicatorTime, Description, iType, IndicatorId, ExpirationDateTime, Syslog_TimeGenerated, WG_domain, HostIP, SyslogMessage, Computer\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P14D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Impact"
+        ],
+        "techniques": [
+          "T1531"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "HostIP"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "Computer"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

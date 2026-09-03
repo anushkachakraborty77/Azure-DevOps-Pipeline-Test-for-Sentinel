@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/7d9da0f7-77af-4a83-99da-a979d289b4e6')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/7d9da0f7-77af-4a83-99da-a979d289b4e6')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - Syslog or CommonSecurityLog not reporting",
+        "description": "Syslog or CommonSecurityLog not reporting within the past hour.\n",
+        "severity": "Low",
+        "enabled": false,
+        "query": "// Is a Table offline for longer than One Hour\n// Set allowable offline interval, Lower interval default = 1hr, upper default = 2h(+5m covers any gaps in alerting), Severity=Low\nlet lowerInterval = 1h;\nlet upperInterval = 2h + 5m;\nlet safeline = datatable (Type: string, Message:string, TimeGenerated:datetime)['safeline','QC',\"2022-01-01\"]; \nunion isfuzzy=true Syslog, CommonSecurityLog, safeline\n| where Type !=\"safeline\"\n| summarize LastCall = max(TimeGenerated), minutesSinceLastCall=datetime_diff(\"minute\", now(), max(TimeGenerated)) by Type\n// Alert if the Agent is down for > n hrs but ignore if down for longer than n hrs so we dont duplicate the Alert.\n| where LastCall < ago(lowerInterval) and LastCall > ago(upperInterval)\n| project LastCall, minutesSinceLastCall, Type\n| join\n(\n// Count data for the past 7 days to give a daily trend indictaing if this Source is often offline \nunion isfuzzy=true Syslog, CommonSecurityLog, safeline\n| where Type !=\"safeline\"\n| make-series dailyTrend=count() on TimeGenerated from ago(7d) to now() step 1d by Type\n)\non Type\n| project-away TimeGenerated, Type1\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT3H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT4H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": null,
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

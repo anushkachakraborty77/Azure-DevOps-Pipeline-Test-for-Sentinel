@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b4dcd7e0-5444-4581-b5b7-f11fa9728bfa')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b4dcd7e0-5444-4581-b5b7-f11fa9728bfa')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - HA - Critical table offline",
+        "description": "#DONT_CORR#\nThis rule triggers when a log stoppage of a high criticality table is observed, for this rule to work as expected the table and severity must be inside \nthe \"TableOfflineIndex\" watchlist. For this analytic \"log stoppage\" is classified as such as when the table in question does not ingest data for over an hour.\nTime thresholds are defined as follows and should be customized based on the specific needs and use case of the environment,\n\"High\" - 1 Hour, \"Moderate\" - 3 hours, \"Medium\" - 6 Hours, \"Low\" - 12 Hours, \"VeryLow\" - 24 Hours, \"Lowest\" - 72 Hours, \"Weekly\" - 7 days.\n",
+        "severity": "High",
+        "enabled": true,
+        "query": "let ingestionTime = ingestion_time();  \nlet MonitoredAssets = _GetWatchlist(\"TableOfflineIndex\")\n| where Frequency == \"High\"\n| summarize by Name, Frequency, Maintenance\n| project-rename Table = Name;\n// Get all available tables most recent logs\nlet Tab1 = (\n    AllTableNames\n    | where ingestionTime > ago(1d)\n    | extend Table = tostring(tablename)\n    | summarize Last_seen = max(ingestionTime), Last_count = count() by Table\n);\n// Get all vendors and products within common security logs most recent log\nlet Tab2 = (\n    AllTableNames\n    | where ingestionTime > ago(1d)\n    | extend Table_ = tostring(tablename)\n    | where Table_ == \"CommonSecurityLog\"\n    | as cache\n    | extend Table = DeviceVendor\n    | union (cache | extend Table = DeviceProduct)\n    | summarize Last_seen = max(ingestionTime), Last_count = count() by Table\n);\n// Get all products from within SecurityAlerts most recent log\nlet Tab3 = (\n    AllTableNames\n    | where ingestionTime > ago(1d)\n    | extend Table_ = tostring(tablename)\n    | where Table_ == \"SecurityAlert\"\n    | extend Table = ProductName\n    | summarize Last_seen = max(ingestionTime), Last_count = count() by Table\n);\n// Get all products from within ASimTables most recent log\nlet Tab4 = (\n    AllTableNames\n    | where ingestionTime > ago(1d)\n    | extend Table_ = tostring(tablename)\n    | where Table_ has_any (\"ASimNetworkSessionLogs\", \"ASimDnsActivityLogs\")\n    | extend Table = EventProduct\n    | summarize Last_seen = max(ingestionTime), Last_count = count() by Table\n);\nlet MergedTables = union Tab1, Tab2, Tab3, Tab4;\nMergedTables\n| join kind=inner (MonitoredAssets) on Table\n| where tolower(Maintenance) !~ \"true\" // exclude entries under maintenance (case insensitive)\n| extend timenow = now()\n| extend time_diff = datetime_diff(\"minute\", timenow, Last_seen)\n| extend OverTimeDiff = 60 // High - 1 hour threshold\n| where time_diff >= OverTimeDiff\n| extend Override = strcat(\"Table: '\", Table, \"' last received a log at '\", format_datetime(Last_seen, 'yyyy-M-dd HH:mm:ss'), \"', this violates the defined allowed downtime for this source by '\",  time_diff, \"' minutes. Allowed downtime for this specific source is, '\", OverTimeDiff, \"' minutes.\\n\")\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1562"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": [
+              "Table"
+            ]
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {
+          "alertDisplayNameFormat": "QC - HA - Critical table offline: {{Table}}",
+          "alertDescriptionFormat": "{{Override}} - Please check the source of the logs in your environment. If this is not planned maintenance or expected gap, please select Actions -> Send to Quorum Cyber to escalate to Quorum Cyber Engineering for investigation."
+        },
+        "customDetails": {
+          "Table": "Table"
+        },
+        "entityMappings": null,
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

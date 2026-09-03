@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/5320dfdd-e80a-4761-9937-0c8dac49281e')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/5320dfdd-e80a-4761-9937-0c8dac49281e')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - gsecdump artifact dropped on disk",
+        "description": "The query identifies suspicious binaries that perform the WriteToLsassProcessMemory action type on the target system.\nThis behaviour has been seen when credential dumping tools are used. A \"High\" Integrity Level is required to dump\ncredentials successfully. Advanced adversaries may change the name of the binary or modify the source code to perform\ncredential dumping attacks.\nReferences:\n- https://attack.mitre.org/techniques/T1003/\n- https://attack.mitre.org/software/S0008/\n- https://www.microsoft.com/en-us/wdsi/threats/malware-encyclopedia-description?Name=HackTool:Win32/Gsecdump\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let TimeFrame = 1h;\nlet GsecDumpIoCSearch = \n(union isfuzzy=true\n(DeviceEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has_any (\"OpenProcessApiCall\", \"CreateRemoteThreadApiCall\", \"ReadProcessMemoryApiCall\", \"NtAllocateVirtualMemoryRemoteApiCall\")\n| where InitiatingProcessFileName matches regex \"(^[0-9-a-z]{8})-([0-9a-z]{4})-([0-9a-z]{4})-([0-9a-z]{4})-([0-9a-z]{12}).exe\"\n| join (\n  DeviceEvents\n  | where Timestamp > ago(TimeFrame)\n  | where ActionType has \"WriteToLsassProcessMemory\"\n  | where (AccountDomain == \"\" and isempty(AccountName) \n      and isempty(FileName) and isempty(FolderPath) \n      and isempty(ProcessCommandLine) and isempty(ProcessId) \n      and isempty(ProcessTokenElevation))) on DeviceId, InitiatingProcessId, InitiatingProcessParentId\n  | extend ActionTypes = strcat(ActionType, \" , \", ActionType1)\n  | summarize InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), InitiatingProcessFileName = make_set(InitiatingProcessFileName), InitiatingProcessFolderPath = make_set(InitiatingProcessFolderPath),\n              InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), ProcessCommandLine = make_set(ProcessCommandLine), \n              InitiatingProcessParentId = make_set(InitiatingProcessParentId),InitiatingProcessId = make_set(InitiatingProcessId), ProcessId = make_set(ProcessId), \n              count() by DeviceName, FileName, FolderPath, \n                          AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName,\n                          ProcessTokenElevation, ActionTypes\n  | project-reorder DeviceName, ActionTypes, FileName, FolderPath,\n                  InitiatingProcessParentFileName, InitiatingProcessFileName, InitiatingProcessFolderPath,\n                  InitiatingProcessCommandLine, ProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId, ProcessId, \n                  AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName,  ProcessTokenElevation \n),\n(DeviceFileEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has \"FileCreated\"\n| where InitiatingProcessCommandLine has \"-a\"\n| where FileName matches regex \"^(g64-([0-9a-z]{3}).exe)$\"\n| summarize InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), FileName = make_set(FileName), FolderPath = make_set(FolderPath),\n          InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), \n          InitiatingProcessParentId = make_set(InitiatingProcessParentId), InitiatingProcessId = make_set(InitiatingProcessId), \n          count() by DeviceName, ActionType, InitiatingProcessAccountDomain, InitiatingProcessAccountName,  InitiatingProcessFileName, InitiatingProcessFolderPath, InitiatingProcessIntegrityLevel\n| project-reorder DeviceName, ActionType, \n                  InitiatingProcessFileName, InitiatingProcessFolderPath, InitiatingProcessParentFileName, FileName, FolderPath,\n                  InitiatingProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId, \n                  InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel\n),(DeviceImageLoadEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has \"ImageLoaded\"\n| where FileName matches regex \"^(g64-([0-9a-z]{3}).exe)$\"\n| summarize InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), \n              InitiatingProcessFileName = make_set(InitiatingProcessFileName), FileName = make_set(FileName), FolderPath = make_set(FolderPath),\n              InitiatingProcessFolderPath = make_set(InitiatingProcessFolderPath), InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), \n              InitiatingProcessParentId = make_set(InitiatingProcessParentId), InitiatingProcessId = make_set(InitiatingProcessId), \n              count() by DeviceName,  InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel\n| project-reorder DeviceName, InitiatingProcessParentFileName, InitiatingProcessFolderPath, \n                  InitiatingProcessFileName, FileName, FolderPath,\n                  InitiatingProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId,\n                  InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel \n),(DeviceEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has\"WriteToLsassProcessMemory\"\n| where InitiatingProcessFileName matches regex \"^(g64-([0-9a-z]{3}).exe)$\"\n| extend additionalFields=parse_json(AdditionalFields)\n| summarize InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), InitiatingProcessFileName = make_set(InitiatingProcessFileName), InitiatingProcessFolderPath = make_set(InitiatingProcessFolderPath),\n              InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), ProcessCommandLine = make_set(ProcessCommandLine), \n              InitiatingProcessParentId = make_set(InitiatingProcessParentId),InitiatingProcessId = make_set(InitiatingProcessId), ProcessId = make_set(ProcessId), \n              count() by DeviceName, FileName, FolderPath, \n                          AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName,\n                          ProcessTokenElevation, ActionType\n  | project-reorder DeviceName, ActionType, FileName, FolderPath,\n                  InitiatingProcessParentFileName, InitiatingProcessFileName, InitiatingProcessFolderPath,\n                  InitiatingProcessCommandLine, ProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId, ProcessId, \n                  AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName,  ProcessTokenElevation \n),(DeviceFileEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has \"FileCreated\"\n| where InitiatingProcessParentFileName has_any (\"powershell\",\"cmd\")\n| where FileName matches regex \"^g64-([a-z0-9]{3}).exe$\"\n| where FileSize > 0\n| summarize InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), FileName = make_set(FileName), FolderPath = make_set(FolderPath),\n          InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), \n          InitiatingProcessParentId = make_set(InitiatingProcessParentId), InitiatingProcessId = make_set(InitiatingProcessId), \n          count() by DeviceName, ActionType, InitiatingProcessAccountDomain, InitiatingProcessAccountName,  InitiatingProcessFileName, InitiatingProcessFolderPath, InitiatingProcessIntegrityLevel\n| project-reorder DeviceName, ActionType, \n                  InitiatingProcessFileName, InitiatingProcessFolderPath, InitiatingProcessParentFileName, FileName, FolderPath,\n                  InitiatingProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId, \n                  InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel\n)); GsecDumpIoCSearch\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1003"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": {
+          "InitProcessIdSet": "InitiatingProcessId"
+        },
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e749b235-feae-48b4-8998-fab540aef76e')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e749b235-feae-48b4-8998-fab540aef76e')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Plink protocol tunneling tool identified",
+        "description": "Adversaries may tunnel network communications to and from a victim system within a separate protocol to avoid \ndetection/network filtering and/or enable access to otherwise unreachable systems. Tunneling involves explicitly encapsulating a protocol within another.\nThis behavior may conceal malicious traffic by blending in with existing traffic and/or provide an outer layer of encryption (similar to a VPN). \nTunneling could also enable routing of network packets that would otherwise not reach their intended destination, \nsuch as SMB, RDP, or other traffic that would be filtered by network appliances or not routed over the Internet.\nThere are various means to encapsulate a protocol within another protocol. \nFor example, adversaries may perform SSH tunneling (also known as SSH port forwarding), which involves forwarding arbitrary data over an encrypted SSH tunnel.\nAdversaries may use Valid Accounts to log into remote machines using Secure Shell (SSH). The adversary may then perform actions as the logged-on user.\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let TimeFrame = 1h;\nlet plink_options = dynamic([\"-proxycmd\", \"-noagent\", \"-no-antispoof\", \"-pw\",\"-L\", \"-R\", \"-T\",\"-N\", \"-nc\", \":localhost:\"]);\nlet public_writable_folders = dynamic ([@\"AppData\\Roaming\", \n                                      @\"C:\\Windows\\Temp\",\n                                      @\"AppData\\Local\\Temp\",\n                                      @\"C:\\Windows\\System32\\Microsoft\\Crypto\\RSA\\MachineKeys\",\n                                      @\"C:\\Windows\\System32\\spool\\drivers\\color\",\n                                      @\"C:\\Windows\\System32\\spool\\printers\",\n                                      @\"C:\\Windows\\System32\\spool\\servers\",\n                                      @\"C:\\Windows\\tracing\", \n                                      @\"C:\\Windows\\Temp\",\n                                      @\"C:\\Users\\Public\", \n                                      @\"C:\\Windows\\Tasks\", \n                                      @\"C:\\Windows\\System32\\tasks\", \n                                      @\"C:\\Windows\\SysWOW64\\tasks\", \n                                      @\"C:\\Windows\\System32\\tasks_migrated\\microsoft\\windows\\pls\\system\", \n                                      @\"C:\\Windows\\SysWOW64\\tasks\\microsoft\\windows\\pls\\system\", \n                                      @\"C:\\Windows\\debug\\wia\", \n                                      @\"C:\\Windows\\registration\\crmlog\", \n                                      @\"C:\\Windows\\System32\\com\\dmp\", \n                                      @\"C:\\Windows\\SysWOW64\\com\\dmp\",\n                                      @\"C:\\Windows\\System32\\fxstmp\", \n                                      @\"C:\\Windows\\SysWOW64\\fxstmp\",\n                                      \"Downloads\", \"Public\"]);\nlet PlinkIoCs = \n(union isfuzzy=true\n(DeviceImageLoadEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has \"ImageLoaded\"\n| where InitiatingProcessVersionInfoOriginalFileName has \"Plink\" \n| where InitiatingProcessCommandLine has_any (plink_options) or InitiatingProcessCommandLine matches regex @\"((?:\\b25[0-5]|\\b2[0-4][0-9]|\\b[01]?[0-9][0-9]?)(\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}:[0-9]+).+\"\n| summarize count() by DeviceId, DeviceName, ActionType, \n                      InitiatingProcessParentFileName, InitiatingProcessFolderPath, InitiatingProcessFileName, FileName, FolderPath, FileSize,\n                      InitiatingProcessVersionInfoCompanyName, InitiatingProcessVersionInfoProductName, InitiatingProcessVersionInfoProductVersion, InitiatingProcessVersionInfoInternalFileName, InitiatingProcessVersionInfoOriginalFileName, InitiatingProcessVersionInfoFileDescription, \n                      InitiatingProcessCommandLine,\n                      InitiatingProcessAccountDomain, InitiatingProcessAccountName, \n                      InitiatingProcessIntegrityLevel, InitiatingProcessTokenElevation\n),(DeviceEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has_any (\"ProcessPrimaryTokenModified\", \"CreateRemoteThreadApiCall\", \"PowerShellCommand\")\n| where InitiatingProcessParentFileName has \"plink\" or InitiatingProcessFileName has \"plink\"\n| where InitiatingProcessFolderPath has_any(public_writable_folders) or FolderPath has_any(public_writable_folders)\n| where InitiatingProcessCommandLine has_any (plink_options) or InitiatingProcessCommandLine matches regex @\"((?:\\b25[0-5]|\\b2[0-4][0-9]|\\b[01]?[0-9][0-9]?)(\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}:[0-9]+).+\"\n| extend aux = parse_json(AdditionalFields)\n| extend cmdlets = aux.Command\n| extend TokenModificationProperties=parse_json(AdditionalFields)\n| extend currentTokenIntegrityLevelName = parse_json(tostring(parse_json(AdditionalFields).TokenModificationProperties)).currentTokenIntegrityLevelName\n| extend originalTokenIntegrityLevelName = parse_json(tostring(parse_json(AdditionalFields).TokenModificationProperties)).originalTokenIntegrityLevelName\n| extend isChangedToSystemToken = parse_json(tostring(parse_json(AdditionalFields).TokenModificationProperties)).isChangedToSystemToken\n| extend tokenChangeDescription = parse_json(tostring(parse_json(AdditionalFields).TokenModificationProperties)).tokenChangeDescription\n| extend OriginalTokenIntegrityLevel = TokenModificationProperties.OriginalTokenIntegrityLevel\n| extend OriginalTokenPrivEnabled = TokenModificationProperties.OriginalTokenPrivEnabled\n| extend OriginalTokenPrivPresent = TokenModificationProperties.OriginalTokenPrivPresent\n| extend OriginalTokenSource = TokenModificationProperties.OriginalTokenSource\n| extend OriginalTokenUserSid = TokenModificationProperties.OriginalTokenUserSid\n| extend CurrentTokenIntegrityLevel = TokenModificationProperties.CurrentTokenIntegrityLevel\n| extend CurrentTokenPrivEnabled = TokenModificationProperties.CurrentTokenPrivEnabled\n| extend CurrentTokenSource = TokenModificationProperties.CurrentTokenSource\n| extend CurrentTokenUserSid = TokenModificationProperties.CurrentTokenUserSid\n| extend base64_decode_OriginalTokenSource = base64_decode_tostring(tostring(OriginalTokenSource))\n| extend base64_decode_CurrentTokenSource = base64_decode_tostring(tostring(CurrentTokenSource))\n| summarize count() by DeviceName, \n                      ActionType,  \n                      InitiatingProcessParentFileName, \n                      InitiatingProcessFileName, InitiatingProcessFolderPath,  \n                      InitiatingProcessCommandLine, InitiatingProcessParentId,\n                      InitiatingProcessAccountDomain, InitiatingProcessAccountName, \n                      tostring(tokenChangeDescription), tostring(isChangedToSystemToken), \n                      tostring(originalTokenIntegrityLevelName), tostring(currentTokenIntegrityLevelName), \n                      tostring(OriginalTokenIntegrityLevel),\n                      tostring(OriginalTokenPrivEnabled), tostring(OriginalTokenPrivPresent), \n                      tostring(OriginalTokenSource), tostring(OriginalTokenUserSid), tostring(CurrentTokenIntegrityLevel), tostring(cmdlets),\n                      tostring(CurrentTokenPrivEnabled), tostring(CurrentTokenSource), tostring(CurrentTokenUserSid), base64_decode_OriginalTokenSource, base64_decode_CurrentTokenSource\n| project-reorder  DeviceName, \n                      ActionType, \n                      InitiatingProcessParentFileName, \n                      InitiatingProcessFileName, InitiatingProcessFolderPath,  \n                      InitiatingProcessCommandLine, \n                      InitiatingProcessAccountDomain,InitiatingProcessAccountName, \n                      tokenChangeDescription, isChangedToSystemToken, \n                      originalTokenIntegrityLevelName, currentTokenIntegrityLevelName, \n                      OriginalTokenIntegrityLevel,\n                      OriginalTokenPrivEnabled, OriginalTokenPrivPresent, \n                      OriginalTokenSource, base64_decode_OriginalTokenSource, OriginalTokenUserSid, CurrentTokenIntegrityLevel, \n                      CurrentTokenPrivEnabled, CurrentTokenSource,base64_decode_CurrentTokenSource, CurrentTokenUserSid,cmdlets\n),(DeviceNetworkEvents\n| where Timestamp > ago(TimeFrame)\n| where InitiatingProcessFileName has \"plink\" or InitiatingProcessParentFileName has \"plink\"\n| where InitiatingProcessCommandLine has_any (plink_options) \n   or InitiatingProcessCommandLine matches regex @\"((?:\\b25[0-5]|\\b2[0-4][0-9]|\\b[01]?[0-9][0-9]?)(\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}:[0-9]+).+\"\n| summarize RemotePort = make_set(RemotePort), LocalPort = make_set(LocalPort),\n          InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), \n          count() by DeviceName, ActionType, \n                      RemoteIP,  RemoteUrl, LocalIP, Protocol, \n                      InitiatingProcessParentFileName, InitiatingProcessFolderPath, InitiatingProcessFileName, InitiatingProcessVersionInfoCompanyName, InitiatingProcessVersionInfoProductName, InitiatingProcessVersionInfoProductVersion, InitiatingProcessVersionInfoInternalFileName, InitiatingProcessVersionInfoOriginalFileName, InitiatingProcessVersionInfoFileDescription, \n                      InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel, InitiatingProcessTokenElevation\n| project-reorder DeviceName, ActionType, \n                      RemoteIP, RemoteUrl, LocalIP, Protocol, \n                      InitiatingProcessParentFileName, InitiatingProcessFolderPath, InitiatingProcessFileName,  \n                      InitiatingProcessVersionInfoCompanyName, InitiatingProcessVersionInfoProductName, InitiatingProcessVersionInfoProductVersion, \n                      InitiatingProcessVersionInfoInternalFileName, InitiatingProcessVersionInfoOriginalFileName, InitiatingProcessVersionInfoFileDescription, \n                      InitiatingProcessCommandLine,\n                      InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel, InitiatingProcessTokenElevation\n),(DeviceProcessEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has \"ProcessCreated\"\n| where FileName has \"plink\" or InitiatingProcessFileName has \"plink\"\n| where FolderPath has_any (public_writable_folders)\n| where ProcessCommandLine has_any (plink_options) \n   or ProcessCommandLine matches regex @\"((?:\\b25[0-5]|\\b2[0-4][0-9]|\\b[01]?[0-9][0-9]?)(\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}:[0-9]+).+\"\n| summarize InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine),ProcessCommandLine = make_set(ProcessCommandLine), \n          InitiatingProcessParentId = make_set(InitiatingProcessParentId), InitiatingProcessId = make_set(InitiatingProcessId), ProcessId = make_set(ProcessId), \n          count() by DeviceName, ActionType, InitiatingProcessParentFileName, InitiatingProcessFileName, InitiatingProcessFolderPath,FileName, FolderPath, \n                      AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName, \n                      InitiatingProcessIntegrityLevel, ProcessIntegrityLevel\n| project-reorder DeviceName, ActionType, count_, \n                  InitiatingProcessParentFileName, InitiatingProcessFolderPath,  InitiatingProcessFileName, FileName, FolderPath, \n                  InitiatingProcessCommandLine, ProcessCommandLine, \n                  InitiatingProcessParentId, InitiatingProcessId, ProcessId,\n                  AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName, \n                  InitiatingProcessIntegrityLevel, ProcessIntegrityLevel\n),(DeviceFileEvents\n| where Timestamp > ago(TimeFrame)\n| where FileName has \"plink\" or FolderPath has \"plink\" or InitiatingProcessCommandLine has \"plink\" or InitiatingProcessFileName has \"plink\" or InitiatingProcessParentFileName has \"plink\"\n| summarize count() by  DeviceName,ActionType, FileName, FolderPath, \n                      InitiatingProcessParentFileName, FileOriginUrl, FileOriginReferrerUrl, PreviousFolderPath, PreviousFileName,  \n                      InitiatingProcessFileName, InitiatingProcessFolderPath,\n                      InitiatingProcessCommandLine, \n                      InitiatingProcessIntegrityLevel, InitiatingProcessTokenElevation, InitiatingProcessAccountDomain, InitiatingProcessAccountName, Timestamp \n| project-reorder Timestamp, DeviceName, ActionType, \n                      InitiatingProcessParentFileName, FileName, FolderPath, FileOriginUrl, FileOriginReferrerUrl, PreviousFolderPath, PreviousFileName,  \n                      InitiatingProcessFileName, InitiatingProcessFolderPath,\n                      InitiatingProcessCommandLine, \n                      InitiatingProcessIntegrityLevel, InitiatingProcessTokenElevation, InitiatingProcessAccountDomain, InitiatingProcessAccountName \n));PlinkIoCs\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution",
+          "LateralMovement",
+          "CommandAndControl",
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1059",
+          "T1078",
+          "T1021",
+          "T1090",
+          "T1572",
+          "T1573"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "File",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "FileName"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

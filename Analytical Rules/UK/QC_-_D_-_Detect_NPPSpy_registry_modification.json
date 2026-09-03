@@ -1,0 +1,93 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/58799d16-2f8c-43a7-b945-195449e46a02')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/58799d16-2f8c-43a7-b945-195449e46a02')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Detect NPPSpy registry modification",
+        "description": "This query detects suspicious PowerShell cmdlets used to modify the registry associated with NPPSpy password stealer\nattack. An attacker may create a rogue network logon provider module for credential access via registry by intercepting\nthe authentication credentials in clear text during user logon. A \"High\" Integrity Level is required to dump credentials\nsuccessfully. Advanced adversaries may change the name of the DLL or modify the source code to perform the credential\ndumping attack\nReferences:\n- https://attack.mitre.org/techniques/T1003/\n- https://github.com/gtworek/PSBits/tree/master/PasswordStealing/NPPSpy\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let TimeFrame = 1h;\nlet NPPSpyIoCSearch = \n(union isfuzzy=true\n(DeviceImageLoadEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has \"ImageLoaded\"\n| where InitiatingProcessParentFileName has \"winlogon.exe\"\n| where FileName matches regex \"NPPSPY.dll\"\n| where FolderPath has \"C:\\\\Windows\\\\System32\"\n| where InitiatingProcessCommandLine has \"mpnotify.exe\"\n| summarize InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), \n              InitiatingProcessFileName = make_set(InitiatingProcessFileName), FileName = make_set(FileName), FolderPath = make_set(FolderPath),\n              InitiatingProcessFolderPath = make_set(InitiatingProcessFolderPath), InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), \n              InitiatingProcessParentId = make_set(InitiatingProcessParentId), InitiatingProcessId = make_set(InitiatingProcessId), \n              count() by DeviceName,  InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel\n| project-reorder DeviceName, InitiatingProcessParentFileName, InitiatingProcessFolderPath, \n                InitiatingProcessFileName, FileName, FolderPath,\n                InitiatingProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId,\n                InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel \n),(DeviceFileEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType has \"FileCreated\"\n| where FileName has \"NPPSPY.dll\"\n| where FileSize == 134997\n| summarize InitiatingProcessParentFileName = make_set(InitiatingProcessParentFileName), FileName = make_set(FileName), FolderPath = make_set(FolderPath),\n          InitiatingProcessCommandLine = make_set(InitiatingProcessCommandLine), \n          InitiatingProcessParentId = make_set(InitiatingProcessParentId), InitiatingProcessId = make_set(InitiatingProcessId), \n          count() by DeviceName, ActionType, InitiatingProcessAccountDomain, InitiatingProcessAccountName,  InitiatingProcessFileName, InitiatingProcessFolderPath, InitiatingProcessIntegrityLevel\n| project-reorder DeviceName, ActionType, \n                  InitiatingProcessFileName, InitiatingProcessFolderPath, InitiatingProcessParentFileName, FileName, FolderPath,\n                  InitiatingProcessCommandLine, InitiatingProcessParentId, InitiatingProcessId, \n                  InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel\n),(DeviceRegistryEvents\n| where Timestamp > ago(TimeFrame)\n| where ActionType in (\"RegistryKeyCreated\",\"RegistryValueSet\")\n| where RegistryKey startswith \"HKEY_LOCAL_MACHINE\" and RegistryKey has \"SYSTEM\\\\ControlSet001\\\\Control\\\\NetworkProvider\\\\Order\"\n| where InitiatingProcessIntegrityLevel has \"High\"\n| where RegistryValueName has \"PROVIDERORDER\"\n| where RegistryValueData contains \"NPPSpy\"\n| summarize ActionType = make_set(ActionType), \n              RegistryValueData = make_set(RegistryValueData), PreviousRegistryKey = make_set(PreviousRegistryKey), PreviousRegistryValueData = make_set(PreviousRegistryValueData),\n              InitiatingProcessCommandLine  = make_set(InitiatingProcessCommandLine), InitiatingProcessId = make_set(InitiatingProcessId), \n              count() by DeviceName, InitiatingProcessIntegrityLevel, InitiatingProcessAccountDomain, InitiatingProcessAccountName, RegistryKey\n| project-reorder DeviceName, ActionType, \n              RegistryKey, RegistryValueData, PreviousRegistryKey, PreviousRegistryValueData,\n              InitiatingProcessCommandLine, InitiatingProcessId,\n              InitiatingProcessIntegrityLevel, InitiatingProcessAccountDomain, InitiatingProcessAccountName\n)); NPPSpyIoCSearch\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CredentialAccess",
+          "Execution"
+        ],
+        "techniques": [
+          "T1003",
+          "T1059"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": {
+          "InitiatingProcessId": "InitiatingProcessId",
+          "InitProcCommandLine": "InitiatingProcessCommandLine"
+        },
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "RegistryKey",
+            "fieldMappings": [
+              {
+                "identifier": "Key",
+                "columnName": "RegistryKey"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

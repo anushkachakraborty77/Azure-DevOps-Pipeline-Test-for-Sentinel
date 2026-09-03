@@ -1,0 +1,99 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/67ea301d-318b-47fb-adad-af32ff55dbda')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/67ea301d-318b-47fb-adad-af32ff55dbda')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Telegram connection logged",
+        "description": "Telegram can be used as a C2 channel or for data exfiltration, this can be done by leveraging the Telegram API.\nMultiple actors have used this in the wild, also for exfiltration methods (see references).\nWith this Hunting query we focus on the API of telegram (api.telegram.org).\nAn actor can use Telegram as a C2 channel, while disguising the communication as Telegram traffic.\nThis query excludes common browsers observed accessing Telegram's API.\nreferences:\n- https://github.com/Bert-JanP/Hunting-Queries-Detection-Rules/blob/main/Threat%20Hunting/Behavior%20-%20TelegramC2.md\n- https://attack.mitre.org/techniques/T1071/001\n- https://attack.mitre.org/techniques/T1020\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "DeviceNetworkEvents\n| where TimeGenerated >= ago(1h)\n| where RemoteUrl contains \"telegram.org\"\n| where not(InitiatingProcessVersionInfoProductName has_any (\"Google Chrome\", \"Telegram Desktop\", \"Microsoft Edge\", \"Brave Browser\", \"Firefox\"))\n| where not(InitiatingProcessFileName has_any (\"Ferdium Helper\", \"Google Chrome Helper\"))\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "CommandAndControl",
+          "Exfiltration"
+        ],
+        "techniques": [
+          "T1071",
+          "T1020"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "RemoteUrl"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

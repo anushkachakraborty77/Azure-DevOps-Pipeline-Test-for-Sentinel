@@ -1,0 +1,97 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/cc614e95-aa5c-455a-9ffa-e729f2ad95fb')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/cc614e95-aa5c-455a-9ffa-e729f2ad95fb')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Unusual RuntimeBroker masquerading file or location",
+        "description": "This query searches for RuntimeBroker masquerading filenames or locations used by Truebot to avoid detection.\nTruebot malware copies the initial malware to a new location renaming itself to RuntimeBroker.exe.\nThreat Hunters should obtain hash information on the alerting file for further analysis.\nReferences:\n- https://www.cisa.gov/sites/default/files/2023-07/aa23-187a-increased-truebot-activity-infects-us-and-canada-based-networks_1.pdf\n- https://thedfirreport.com/2023/06/12/a-truly-graceful-wipe-out/\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let TimeFrame = 1h;\nDeviceProcessEvents\n| where Timestamp > ago(TimeFrame)\n| where ProcessCommandLine contains \"RuntimeBroker.exe\" or InitiatingProcessCommandLine contains \"RuntimeBroker.exe\" or FileName contains \"RuntimeBroker.exe\"\n| where not(FolderPath contains \"\\\\Windows\\\\System32\\\\\" or InitiatingProcessFolderPath contains \"\\\\Windows\\\\System32\\\\\")\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1036"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "InitiatingProcessAccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "ProcessCommandLine"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "InitiatingProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/be3accb8-f21c-46fc-b438-5afab12c0141')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/be3accb8-f21c-46fc-b438-5afab12c0141')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - D - Suspicious Terminal Services service started",
+        "description": "This query identifies any new service started utilizing the net command. Additionally, it looks for the particular\ncase of Terminal Services (TermService) service enabling.\nAdversaries may abuse the Windows service control manager to execute malicious commands\nor payloads. The Windows service control manager (services.exe) is an interface to manage and manipulate services.\nThe service control manager is accessible to users via GUI components as well as system utilities such as sc.exe\nand Net. Adversaries may try to get information about registered services. Commands that may obtain information\nabout services using operating system utilities are \"sc,\" \"tasklist /svc\" using Tasklist, and \"net start\" using Net,\nbut adversaries may also use other tools as well. Adversaries may use the information from System Service Discovery\nduring automated discovery to shape follow-on behaviors, including whether or not the adversary fully infects the target\nand/or attempts specific actions.\nReference:\n  - https://attack.mitre.org/techniques/T1059/001/\n  - https://attack.mitre.org/techniques/T1569/002/\n  - https://attack.mitre.org/techniques/T1021/001/\n  - https://attack.mitre.org/techniques/T1007/\n  - https://attack.mitre.org/software/S0039/\n  - https://www.windows-commandline.com/start-terminal-services-command-line/\n",
+        "severity": "Informational",
+        "enabled": false,
+        "query": "let net_params = dynamic ([\"start TermService\"]);\nDeviceProcessEvents\n| where Timestamp > ago(1h)\n| where ActionType has \"ProcessCreated\"\n| where FileName has_any (\"net\", \"net1\") \n| where ProcessCommandLine has_any (net_params)\n| summarize FileName = make_set(FileName), ProcessId = make_set(ProcessId), InitiatingProcessParentId = make_set(InitiatingProcessParentId), InitiatingProcessId = make_set(InitiatingProcessId), \n          count() by DeviceName, ActionType, \n                      InitiatingProcessParentFileName, InitiatingProcessFileName,  \n                      InitiatingProcessCommandLine, ProcessCommandLine, ProcessIntegrityLevel, ProcessTokenElevation, \n                      AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel, InitiatingProcessTokenElevation\n| project-reorder DeviceName, ActionType, \n                InitiatingProcessParentFileName, InitiatingProcessFileName,  FileName, \n                ProcessCommandLine, InitiatingProcessCommandLine, ProcessId, InitiatingProcessParentId, InitiatingProcessId,\n                ProcessIntegrityLevel, ProcessTokenElevation, \n                AccountDomain, AccountName, InitiatingProcessAccountDomain, InitiatingProcessAccountName, InitiatingProcessIntegrityLevel, InitiatingProcessTokenElevation\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "Execution",
+          "LateralMovement",
+          "Discovery"
+        ],
+        "techniques": [
+          "T1059",
+          "T1569",
+          "T1021",
+          "T1007"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": {
+          "FileNameSet": "FileName"
+        },
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              }
+            ]
+          },
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Process",
+            "fieldMappings": [
+              {
+                "identifier": "CommandLine",
+                "columnName": "ProcessCommandLine"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

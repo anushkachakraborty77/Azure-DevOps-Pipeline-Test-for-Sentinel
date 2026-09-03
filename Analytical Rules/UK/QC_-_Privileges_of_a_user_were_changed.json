@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b23e575b-9d2e-4db6-b2e3-e83e0dfc173c')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b23e575b-9d2e-4db6-b2e3-e83e0dfc173c')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - Privileges of a user were changed",
+        "description": "This analytic detects whether a user's privileges have been changed.\n",
+        "severity": "Medium",
+        "enabled": false,
+        "query": "let queryPeriod = 14d;\nlet queryFrequency = 1d;\nlet p = CommonSecurityLog\n| where DeviceVendor =~ \"Palo Alto Networks\"\n| where DeviceProduct == \"LF\"\n| where isnotempty(DestinationUserName)\n//Populates the 'DestinationUserPrivileges' field with 0s just so we have some data since there is an issue with field projection:\n| extend DestinationUserPrivileges = iif(isempty(DestinationUserPrivileges), \"0\", DestinationUserPrivileges)\n| where TimeGenerated between (ago(queryPeriod)..ago(queryFrequency))\n| summarize OldPrivileges = make_set(DestinationUserPrivileges) by DestinationUserName;\nCommonSecurityLog\n| where DeviceVendor =~ \"Palo Alto Networks\"\n| where DeviceProduct == \"LF\"\n| where isnotempty(DestinationUserName)\n//Populates the 'DestinationUserPrivileges' field with 0s just so we have some data since there is an issue with field projection:\n| extend DestinationUserPrivileges = iif(isempty(DestinationUserPrivileges), \"1\", DestinationUserPrivileges)\n| where TimeGenerated >= ago(queryFrequency)\n| summarize NewPrivileges = make_set(DestinationUserPrivileges) by DestinationUserName\n| join kind=innerunique (p) on DestinationUserName \n| where tostring(OldPrivileges) != tostring(NewPrivileges)\n",
+        "queryFrequency": "P1D",
+        "queryPeriod": "P14D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1078"
+        ],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT4H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": null,
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}

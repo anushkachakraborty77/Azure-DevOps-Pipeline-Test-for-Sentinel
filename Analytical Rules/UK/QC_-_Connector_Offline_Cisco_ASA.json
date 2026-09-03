@@ -1,0 +1,66 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/0567cb44-96e5-4f2d-9434-31b0f7507bd6')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/0567cb44-96e5-4f2d-9434-31b0f7507bd6')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2023-12-01-preview",
+      "properties": {
+        "displayName": "QC - Connector Offline Cisco ASA",
+        "description": "Identifies when the last time a logged event has been ingested into the clients workspace from the \"Cisco ASA\" connector. Query then\nchecks the time the latest event was generated against the timespan specified in the associated watchlist. If the time generated of the latest\nevent indicates that it was generated before the specified time, an incident will be generate to prompt an investigation as to why the connector\nhasn't ingested any events recently.\n",
+        "severity": "Low",
+        "enabled": true,
+        "query": "// ASA ( Cisco ASA )\n// ========= KQL =========\n// version 0.3\n// set the search term for the watch list\n// ===== customisation below =====\nlet search_name = \"cisco_asa\";\nlet queryPeriod = 14d;\n// list and filter last event\nlet LastEvent = (\n    CommonSecurityLog\n    | where DeviceVendor =~ \"Cisco\"\n    | where DeviceProduct == \"ASA\"\n    // ===== customisation above =====\n    | where TimeGenerated between (ago(queryPeriod) .. now())\n    | summarize LastEvent = max(TimeGenerated) \n);\nlet DecommissionedAssets = _GetWatchlist(\"connector_health_decommissioned_assets\");\nlet watchlist_name  = \"connector_health_wl_v1\";\nlet safeline = datatable (SearchKey:string,lowerLimit:string )[\"\",\"999h\"];\n// set the watch list to use\nlet contectorTables = materialize (_GetWatchlist(watchlist_name));\n// select the entry from the watch list, and merge in safeline, to prevent errors\nlet TSlowerLimit = toscalar(\n    contectorTables \n    | where SearchKey == search_name\n    | union safeline\n    | project lowerLimit\n    | extend  Timelowerlimit = totimespan(lowerLimit)\n    // the line below will always pick the smaller of the entries - a real watchlist entry will always be below 999h\n    | summarize min(Timelowerlimit)\n);\nLastEvent\n// only show last event if it is greater than the limit pulled from the watchlist\n| where LastEvent < ago(TSlowerLimit)\n| extend QC_data_health_name = search_name, QC_data_health_type = \"Connector Offline\", QC_data_health_limit = TSlowerLimit\n| project LastEvent,\n    QC_data_health_name,\n    QC_data_health_type,\n    QC_data_health_limit\n/////////////////////Handling decommissioned assets ////////////////////////// \n| join kind = leftouter DecommissionedAssets on $left.QC_data_health_name == $right.AssetName\n| extend OfflineDate = todatetime(strcat_array(array_reverse(split(OfflineDate, \"/\")), \"-\"))\n| where startofday(LastEvent) < startofday(OfflineDate)\n  or isempty(OfflineDate)\n",
+        "queryFrequency": "PT12H",
+        "queryPeriod": "P14D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT4H",
+        "suppressionEnabled": false,
+        "startTimeUtc": null,
+        "tactics": [],
+        "techniques": [],
+        "subTechniques": [],
+        "alertRuleTemplateName": null,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "P3D",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "alertDetailsOverride": {},
+        "customDetails": null,
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "QC_data_health_name"
+              }
+            ]
+          }
+        ],
+        "sentinelEntitiesMappings": null,
+        "templateVersion": null
+      }
+    }
+  ]
+}
